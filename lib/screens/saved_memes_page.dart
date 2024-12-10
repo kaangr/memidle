@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/database_helper.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SavedMemesPage extends StatefulWidget {
   final int userId;
@@ -89,6 +90,14 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
               ),
             ),
           ),
+          Positioned(
+            right: 40,
+            top: 4,
+            child: IconButton(
+              icon: const Icon(Icons.share, color: Colors.white),
+              onPressed: () => _shareMeme(meme['image_path']),
+            ),
+          ),
         ],
       ),
     );
@@ -122,5 +131,9 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
       await _dbHelper.deleteMeme(memeId);
       setState(() {}); // Refresh the list
     }
+  }
+  Future<void> _shareMeme(String imagePath) async {
+    await Share.shareFiles([imagePath], text: 'Check out my meme!');
+
   }
 } 

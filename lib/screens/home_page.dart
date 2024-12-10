@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/database_helper.dart';
 import 'dart:ui' as ui;
@@ -128,6 +129,10 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveMeme,
+          ),
+          IconButton(
+            icon: const Icon(Icons.image),
+            onPressed: _selectMemeImage,
           ),
         ],
       ),
@@ -406,6 +411,15 @@ class _HomePageState extends State<HomePage> {
         _selectedImage = File(croppedFile.path);
       });
     }
+  }
+
+  Future<void> _selectMemeImage() async {
+    // Load images from assets
+    final ByteData data = await rootBundle.load('data/assets/images/memes/meme1.png'); // Example image
+    final Uint8List bytes = data.buffer.asUint8List();
+    setState(() {
+      _selectedImage = File.fromRawPath(bytes); // Update this to handle multiple images
+    });
   }
 
   @override

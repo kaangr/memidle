@@ -3,74 +3,35 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import '../services/database_helper.dart';
+import 'package:memidle_test/models/meme_text.dart';
+import '../services/database_helper.dart' hide MemeText;
 import 'dart:ui' as ui;
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'saved_memes_page.dart';
 import 'package:path_provider/path_provider.dart';
+import 'template_selection_page.dart';
+
+final List<String> imagePaths = [
+  'data/assets/images/memes/meme_1.jpeg',
+  'data/assets/images/memes/meme_2.png',
+  'data/assets/images/memes/meme_3.png',
+  'data/assets/images/memes/meme_4.png',
+  'data/assets/images/memes/meme_5.png',
+  'data/assets/images/memes/meme_6.png',
+  'data/assets/images/memes/meme_7.png',
+  'data/assets/images/memes/meme_8.jpeg',
+  'data/assets/images/memes/meme_9.jpg',
+];
 
 class HomePage extends StatefulWidget {
   final int? userId;
-  const HomePage({super.key, this.userId});
+  final File? selectedImage;
+
+  const HomePage({super.key, this.userId, this.selectedImage});
 
   @override
   State<HomePage> createState() => _HomePageState();
-}
-
-class MemeText {
-  String text;
-  Offset position;
-  double fontSize;
-  Color color;
-  double strokeWidth;
-  Color strokeColor;
-  double blurRadius;
-  Color shadowColor;
-  Offset shadowOffset;
-  
-  TextStyle get style => strokeWidth > 0 
-    ? TextStyle(
-        fontSize: fontSize,
-        fontWeight: FontWeight.bold,
-        shadows: [
-          Shadow(
-            offset: shadowOffset,
-            blurRadius: blurRadius,
-            color: shadowColor,
-          ),
-        ],
-        foreground: Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeWidth
-          ..color = strokeColor,
-        background: Paint()
-          ..color = color
-      )
-    : TextStyle(
-        fontSize: fontSize,
-        color: color,
-        fontWeight: FontWeight.bold,
-        shadows: [
-          Shadow(
-            offset: shadowOffset,
-            blurRadius: blurRadius,
-            color: shadowColor,
-          ),
-        ]
-      );
-
-  MemeText({
-    required this.text,
-    required this.position,
-    this.fontSize = 24,
-    this.color = Colors.white,
-    this.strokeWidth = 0,
-    this.strokeColor = Colors.black,
-    this.blurRadius = 3,
-    this.shadowColor = Colors.black,
-    this.shadowOffset = const Offset(1, 1),
-  });
 }
 
 class _HomePageState extends State<HomePage> {
@@ -87,119 +48,34 @@ class _HomePageState extends State<HomePage> {
   Color _currentStrokeColor = Colors.black;
   double _currentBlurRadius = 3;
   Color _currentShadowColor = Colors.black;
-  Offset _currentShadowOffset = const Offset(1, 1);
+  //Offset _currentShadowOffset = const Offset(1, 1);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selectedImage != null) {
+      _selectedImage = widget.selectedImage;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meme Creator'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.photo_library),
-            onPressed: () {
-              if (widget.userId != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SavedMemesPage(userId: widget.userId!),
-                  ),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('User ID is null')),
-                );
-              }
-            },
-          ),
-          if (_selectedImage != null) ...[
-            IconButton(
-              icon: const Icon(Icons.crop),
-              onPressed: _cropImage,
-            ),
-            IconButton(
-              icon: const Icon(Icons.rotate_right),
-              onPressed: _rotateImage,
-            ),
-          ],
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _addNewText,
-          ),
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveMeme,
-          ),
-          IconButton(
-            icon: const Icon(Icons.image),
-            onPressed: _selectMemeImage,
-          ),
-        ],
+        title: const Text('Meme Gallery'),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  if (_selectedImage != null)
-                    Stack(
-                      children: [
-                        Image.file(_selectedImage!),
-                        ..._memeTexts.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final memeText = entry.value;
-                          return Positioned(
-                            left: memeText.position.dx,
-                            top: memeText.position.dy,
-                            child: GestureDetector(
-                              onTap: () => _selectText(index),
-                              onPanUpdate: (details) {
-                                setState(() {
-                                  memeText.position += details.delta;
-                                });
-                              },
-                              child: Text(
-                                memeText.text,
-                                style: memeText.style,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ],
-                    )
-                  else
-                    Container(
-                      height: 300,
-                      color: Colors.grey[300],
-                      child: const Center(
-                        child: Text('No image selected'),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          if (_selectedTextIndex != null) _buildTextEditingPanel(),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _pickImage(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library),
-                  label: const Text('Gallery'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () => _pickImage(ImageSource.camera),
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text('Camera'),
-                ),
-              ],
-            ),
-          ),
-        ],
+      body: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
+        itemCount: imagePaths.length,
+        itemBuilder: (context, index) {
+          return Card(
+            child: Image.asset(imagePaths[index]), // Resmi göster
+          );
+        },
       ),
     );
   }
@@ -283,77 +159,20 @@ class _HomePageState extends State<HomePage> {
     }
 
     try {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      // MemeText nesnelerini oluşturun
+      List<model.MemeText> memeTexts = _memeTexts; // Mevcut meme metinlerini kullanın
 
-      // Load the image
-      final originalImage = await _loadImage(_selectedImage!.path);
+      // saveMeme metodunu çağırın
+      await _dbHelper.saveMeme(widget.userId ?? 0, _selectedImage!.path, memeTexts);
       
-      // Create a new image with the same size
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-      final size = Size(originalImage.width.toDouble(), originalImage.height.toDouble());
-      
-      // Draw the original image
-      canvas.drawImage(originalImage, Offset.zero, Paint());
-      
-      // Draw all text elements
-      for (final memeText in _memeTexts) {
-        final textPainter = TextPainter(
-          text: TextSpan(
-            text: memeText.text,
-            style: memeText.style,
-          ),
-          textDirection: TextDirection.ltr,
-        );
-        
-        textPainter.layout();
-        textPainter.paint(
-          canvas,
-          memeText.position,
-        );
-      }
-      
-      // Convert to image
-      final picture = recorder.endRecording();
-      final img = await picture.toImage(
-        originalImage.width,
-        originalImage.height,
+      // Başarılı bir şekilde kaydedildiğinde kullanıcıya bildirim gösterin
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Meme saved successfully')),
       );
-      final pngBytes = await img.toByteData(format: ui.ImageByteFormat.png);
-      
-      // Save to file
-      final directory = await getApplicationDocumentsDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final path = '${directory.path}/meme_$timestamp.png';
-      
-      final file = File(path);
-      await file.writeAsBytes(pngBytes!.buffer.asUint8List());
-      
-      // Save to database
-      await _dbHelper.saveMeme(widget.userId ?? 0, path);
-      
-      // Close loading indicator
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Meme saved successfully')),
-        );
-      }
     } catch (e) {
-      // Close loading indicator
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving meme: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving meme: $e')),
+      );
     }
   }
 
@@ -413,13 +232,20 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _selectMemeImage() async {
-    // Load images from assets
-    final ByteData data = await rootBundle.load('data/assets/images/memes/meme1.png'); // Example image
-    final Uint8List bytes = data.buffer.asUint8List();
-    setState(() {
-      _selectedImage = File.fromRawPath(bytes); // Update this to handle multiple images
-    });
+  Future<void> _selectTemplate() {
+    return Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TemplateSelectionPage(
+          onTemplateSelected: (File selectedTemplate) {
+            setState(() {
+              _selectedImage = selectedTemplate;
+              _memeTexts.clear();
+            });
+          },
+        ),
+      ),
+    );
   }
 
   @override

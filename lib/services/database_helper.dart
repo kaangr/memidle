@@ -1,6 +1,17 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:io';
+import 'package:flutter/material.dart';
+import 'dart:convert';
+
+class MemeText {
+    final String text;
+    final Offset position;
+    final double fontSize;
+    final Color color;
+
+    MemeText(this.text, this.position, this.fontSize, this.color);
+}
 
 class DatabaseHelper {
   static Database? _database;
@@ -37,7 +48,8 @@ class DatabaseHelper {
         user_id INTEGER,
         image_path TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
+        texts TEXT,
+        FOREIGN KEY (user_id) REFERENCES users (userid)
       )
     ''');
   }
@@ -73,12 +85,24 @@ class DatabaseHelper {
     return null;
   }
 
-  Future<void> saveMeme(int userId, String imagePath) async {
+  Future<void> saveMeme(int userId, String imagePath, List<MemeText> memeTexts) async {
     final db = await database;
+
+    String textsJson = jsonEncode(memeTexts.map((text) => {
+      'content': text.text,
+      'position_x': text.position.dx,
+      'position_y': text.position.dy,
+      'font_size': text.fontSize,
+      'color': text.color.value,
+    }).toList());
+
+    print('MemeTexts: $textsJson');
+
     await db.insert('memes', {
       'user_id': userId,
       'image_path': imagePath,
       'created_at': DateTime.now().toIso8601String(),
+      'texts': textsJson,
     });
   }
 

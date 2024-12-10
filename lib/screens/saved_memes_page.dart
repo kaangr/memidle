@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/database_helper.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'home_page.dart';
 
 class SavedMemesPage extends StatefulWidget {
   final int userId;
@@ -21,7 +23,7 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
       appBar: AppBar(
         title: const Text('Saved Memes'),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: FutureBuilder<List<Map<String, dynamic>>>( 
         future: _dbHelper.getUserMemes(widget.userId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -64,11 +66,14 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          Image.file(
-            file,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.cover,
+          GestureDetector(
+            onTap: () => _showMemePopup(file),
+            child: Image.file(
+              file,
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.cover,
+            ),
           ),
           Positioned(
             right: 4,
@@ -95,12 +100,55 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
             top: 4,
             child: IconButton(
               icon: const Icon(Icons.share, color: Colors.white),
-              onPressed: () => _shareMeme(meme['image_path']),
+              onPressed: () => _shareMeme(file),
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _showMemePopup(File memeFile) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.file(memeFile),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _editMeme(memeFile);
+                },
+                child: const Text('Edit Meme'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _editMeme(File memeFile) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HomePage(userId: widget.userId, selectedImage: memeFile),
+      ),
+    );
+  }
+
+  Future<void> _shareMeme(File memeFile) async {
+    try {
+      await Share.shareXFiles([XFile(memeFile.path)], text: 'Check out my meme!');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing meme: $e')),
+      );
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -132,8 +180,4 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
       setState(() {}); // Refresh the list
     }
   }
-  Future<void> _shareMeme(String imagePath) async {
-    await Share.shareFiles([imagePath], text: 'Check out my meme!');
-
-  }
-} 
+}

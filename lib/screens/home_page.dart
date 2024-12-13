@@ -3,14 +3,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:memidle_test/models/meme_text.dart';
-import '../services/database_helper.dart' hide MemeText;
+
+import '../services/database_helper.dart';
 import 'dart:ui' as ui;
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'saved_memes_page.dart';
 import 'package:path_provider/path_provider.dart';
 import 'template_selection_page.dart';
+import 'dart:math';
 
 final List<String> imagePaths = [
   'data/assets/images/memes/meme_1.jpeg',
@@ -23,6 +24,28 @@ final List<String> imagePaths = [
   'data/assets/images/memes/meme_8.jpeg',
   'data/assets/images/memes/meme_9.jpg',
 ];
+
+class MemeTextWidget {
+  String text;
+  Offset position;
+  double fontSize;
+  Color color;
+  double strokeWidth; // Eğer varsa
+  Color strokeColor; // Eğer varsa
+
+  MemeTextWidget({
+    required this.text,
+    required this.position,
+    required this.fontSize,
+    required this.color,
+    this.strokeWidth = 0.0,
+    this.strokeColor = Colors.black,
+  });
+  
+  set shadowColor(Color shadowColor) {}
+  
+  set blurRadius(double blurRadius) {}
+}
 
 class HomePage extends StatefulWidget {
   final int? userId;
@@ -39,8 +62,7 @@ class _HomePageState extends State<HomePage> {
   final _textController = TextEditingController();
   final _dbHelper = DatabaseHelper();
   final ImagePicker _picker = ImagePicker();
-  final List<MemeText> _memeTexts = [];
-  int? _selectedTextIndex;
+  MemeTextWidget? _memeText;
   
   double _currentFontSize = 24;
   Color _currentColor = Colors.white;
@@ -62,49 +84,129 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meme Gallery'),
+        title: const Text('Meme Creator'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _saveMeme,
+          ),
+          IconButton(
+            icon: const Icon(Icons.photo_library),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SavedMemesPage(userId: widget.userId ?? 0),
+                ),
+              );
+            },
+          ),
+        ],
       ),
-      body: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+      body: Column(
+        children: [
+          if (_selectedImage != null)
+            Expanded(
+              child: Stack(
+                children: [
+                  InteractiveViewer(
+                    child: Image.file(_selectedImage!),
+                  ),
+                  if (_memeText != null)
+                    Positioned(
+                      left: _memeText!.position.dx,
+                      top: _memeText!.position.dy,
+                      child: GestureDetector(
+                        onPanUpdate: (details) {
+                          setState(() {
+                            _memeText!.position += details.delta;
+                          });
+                        },
+                        child: Text(
+                          _memeText!.text,
+                          style: TextStyle(
+                            fontSize: _memeText!.fontSize,
+                            color: _memeText!.color,
+                            shadows: [
+                              Shadow(
+                                color: _memeText!.strokeColor,
+                                blurRadius: _currentBlurRadius,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            )
+          else
+            Expanded(
+              child: Center(
+                child: Text('No image selected'),
+              ),
+            ),
+          if (_memeText != null) _buildTextEditingPanel(),
+        ],
+      ),
+      bottomNavigationBar: BottomAppBar(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.photo_camera),
+              onPressed: () => _pickImage(ImageSource.camera),
+            ),
+            IconButton(
+              icon: const Icon(Icons.photo),
+              onPressed: () => _pickImage(ImageSource.gallery),
+            ),
+            IconButton(
+              icon: const Icon(Icons.text_fields),
+              onPressed: _addNewText,
+            ),
+            IconButton(
+              icon: const Icon(Icons.crop),
+              onPressed: _cropImage,
+            ),
+            IconButton(
+              icon: const Icon(Icons.rotate_right),
+              onPressed: _rotateImage,
+            ),
+            IconButton(
+              icon: const Icon(Icons.grid_view),
+              onPressed: _selectTemplate,
+            ),
+          ],
         ),
-        itemCount: imagePaths.length,
-        itemBuilder: (context, index) {
-          return Card(
-            child: Image.asset(imagePaths[index]), // Resmi göster
-          );
-        },
       ),
     );
   }
 
   void _addNewText() {
     setState(() {
-      _memeTexts.add(MemeText(
+      _memeText = MemeTextWidget(
         text: 'New Text',
         position: const Offset(100, 100),
-      ));
-      _selectedTextIndex = _memeTexts.length - 1;
+        fontSize: _currentFontSize,
+        color: _currentColor,
+        strokeWidth: _currentStrokeWidth,
+        strokeColor: _currentStrokeColor,
+      );
       _textController.text = 'New Text';
     });
   }
 
   void _selectText(int index) {
     setState(() {
-      _selectedTextIndex = index;
-      _textController.text = _memeTexts[index].text;
-      _currentFontSize = _memeTexts[index].fontSize;
-      _currentColor = _memeTexts[index].color;
+      // Burada mevcut _memeText'i güncelleyebilirsiniz
     });
   }
 
   void _deleteSelectedText() {
-    if (_selectedTextIndex != null) {
+    if (_memeText != null) {
       setState(() {
-        _memeTexts.removeAt(_selectedTextIndex!);
-        _selectedTextIndex = null;
+        _memeText = null;
         _textController.clear();
       });
     }
@@ -144,28 +246,92 @@ class _HomePageState extends State<HomePage> {
     if (image != null) {
       setState(() {
         _selectedImage = File(image.path);
-        _memeTexts.clear();
-        _selectedTextIndex = null;
+        _memeText = null;
       });
     }
   }
 
   Future<void> _saveMeme() async {
-    if (_selectedImage == null) {
+    if (_selectedImage == null || _memeText == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an image first')),
+        const SnackBar(content: Text('Please select an image and add text first')),
       );
       return;
     }
 
     try {
-      // MemeText nesnelerini oluşturun
-      List<model.MemeText> memeTexts = _memeTexts; // Mevcut meme metinlerini kullanın
-
-      // saveMeme metodunu çağırın
-      await _dbHelper.saveMeme(widget.userId ?? 0, _selectedImage!.path, memeTexts);
+      // Resmi ve text'i bir araya getir
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
       
-      // Başarılı bir şekilde kaydedildiğinde kullanıcıya bildirim gösterin
+      // Resmi yükle ve çiz
+      final image = await _loadImage(_selectedImage!.path);
+      canvas.drawImage(image, Offset.zero, Paint());
+      
+      // Text'i çiz
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: _memeText!.text,
+          style: TextStyle(
+            fontSize: _memeText!.fontSize,
+            color: _memeText!.color,
+            shadows: [
+              Shadow(
+                color: _memeText!.strokeColor,
+                blurRadius: _currentBlurRadius,
+              ),
+            ],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      
+      // Ekran ve resim boyutları arasındaki oranı hesapla
+      final screenSize = MediaQuery.of(context).size;
+      final scale = image.width / screenSize.width;
+      
+      // Pozisyonu ölçekle
+      final scaledPosition = Offset(
+        _memeText!.position.dx * scale,
+        _memeText!.position.dy * scale,
+      );
+      
+      textPainter.paint(canvas, scaledPosition);
+      
+      // Resmi kaydet
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(image.width, image.height);
+      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+      final buffer = byteData!.buffer.asUint8List();
+      
+      // Kalıcı dizin oluştur ve dosyayı kaydet
+      final appDir = await getApplicationDocumentsDirectory();
+      final memesDir = Directory('${appDir.path}/memes');
+      if (!await memesDir.exists()) {
+        await memesDir.create(recursive: true);
+      }
+      
+      final memeFile = File('${memesDir.path}/meme_${DateTime.now().millisecondsSinceEpoch}.png');
+      await memeFile.writeAsBytes(buffer);
+
+      // DatabaseMemeText oluştur
+      final databaseMemeText = DatabaseMemeText(
+        text: _memeText!.text,
+        position: _memeText!.position,
+        fontSize: _memeText!.fontSize,
+        color: _memeText!.color,
+        strokeWidth: _memeText!.strokeWidth,
+        strokeColor: _memeText!.strokeColor,
+      );
+
+      // Veritabanına kaydet
+      await _dbHelper.saveMeme(
+        widget.userId ?? 0,
+        memeFile.path,
+        [databaseMemeText],
+      );
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Meme saved successfully')),
       );
@@ -240,7 +406,7 @@ class _HomePageState extends State<HomePage> {
           onTemplateSelected: (File selectedTemplate) {
             setState(() {
               _selectedImage = selectedTemplate;
-              _memeTexts.clear();
+              _memeText = null;
             });
           },
         ),
@@ -269,7 +435,7 @@ class _HomePageState extends State<HomePage> {
             ),
             onChanged: (value) {
               setState(() {
-                _memeTexts[_selectedTextIndex!].text = value;
+                _memeText!.text = value;
               });
             },
           ),
@@ -287,7 +453,7 @@ class _HomePageState extends State<HomePage> {
                       onChanged: (value) {
                         setState(() {
                           _currentFontSize = value;
-                          _memeTexts[_selectedTextIndex!].fontSize = value;
+                          _memeText!.fontSize = value;
                         });
                       },
                     ),
@@ -302,7 +468,7 @@ class _HomePageState extends State<HomePage> {
                   onColorChanged: (color) {
                     setState(() {
                       _currentColor = color;
-                      _memeTexts[_selectedTextIndex!].color = color;
+                      _memeText!.color = color;
                     });
                   },
                 ),
@@ -326,7 +492,7 @@ class _HomePageState extends State<HomePage> {
                         onChanged: (value) {
                           setState(() {
                             _currentStrokeWidth = value;
-                            _memeTexts[_selectedTextIndex!].strokeWidth = value;
+                            _memeText!.strokeWidth = value;
                           });
                         },
                       ),
@@ -339,7 +505,7 @@ class _HomePageState extends State<HomePage> {
                         onColorChanged: (color) {
                           setState(() {
                             _currentStrokeColor = color;
-                            _memeTexts[_selectedTextIndex!].strokeColor = color;
+                            _memeText!.strokeColor = color;
                           });
                         },
                       ),
@@ -361,7 +527,7 @@ class _HomePageState extends State<HomePage> {
                         onChanged: (value) {
                           setState(() {
                             _currentBlurRadius = value;
-                            _memeTexts[_selectedTextIndex!].blurRadius = value;
+                            _memeText!.blurRadius = value;
                           });
                         },
                       ),
@@ -374,7 +540,7 @@ class _HomePageState extends State<HomePage> {
                         onColorChanged: (color) {
                           setState(() {
                             _currentShadowColor = color;
-                            _memeTexts[_selectedTextIndex!].shadowColor = color;
+                            _memeText!.shadowColor = color;
                           });
                         },
                       ),
@@ -396,5 +562,17 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  void _updateText() {
+    if (_memeText != null) {
+      setState(() {
+        _memeText!.text = _textController.text;
+        _memeText!.fontSize = _currentFontSize;
+        _memeText!.color = _currentColor;
+        _memeText!.strokeWidth = _currentStrokeWidth;
+        _memeText!.strokeColor = _currentStrokeColor;
+      });
+    }
   }
 } 

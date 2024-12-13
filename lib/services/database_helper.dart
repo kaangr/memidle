@@ -4,13 +4,22 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 
-class MemeText {
-    final String text;
-    final Offset position;
-    final double fontSize;
-    final Color color;
+class DatabaseMemeText {
+  final String text;
+  final Offset position;
+  final double fontSize;
+  final Color color;
+  final double strokeWidth;
+  final Color strokeColor;
 
-    MemeText(this.text, this.position, this.fontSize, this.color);
+  DatabaseMemeText({
+    required this.text,
+    required this.position,
+    required this.fontSize,
+    required this.color,
+    this.strokeWidth = 0.0,
+    this.strokeColor = Colors.black,
+  });
 }
 
 class DatabaseHelper {
@@ -28,8 +37,9 @@ class DatabaseHelper {
     print(path);
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -52,6 +62,34 @@ class DatabaseHelper {
         FOREIGN KEY (user_id) REFERENCES users (userid)
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Mevcut tabloyu yedekle
+      await db.execute('ALTER TABLE memes RENAME TO memes_old');
+      
+      // Yeni tabloyu oluştur
+      await db.execute('''
+        CREATE TABLE memes(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          image_path TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          texts TEXT,
+          FOREIGN KEY (user_id) REFERENCES users (userid)
+        )
+      ''');
+      
+      // Eski verilerı yeni tabloya taşı
+      await db.execute('''
+        INSERT INTO memes (id, user_id, image_path, created_at)
+        SELECT id, user_id, image_path, created_at FROM memes_old
+      ''');
+      
+      // Eski tabloyu sil
+      await db.execute('DROP TABLE memes_old');
+    }
   }
 
   Future<bool> registerUser(String username, String password) async {
@@ -85,7 +123,7 @@ class DatabaseHelper {
     return null;
   }
 
-  Future<void> saveMeme(int userId, String imagePath, List<MemeText> memeTexts) async {
+  Future<void> saveMeme(int userId, String imagePath, List<DatabaseMemeText> memeTexts) async {
     final db = await database;
 
     String textsJson = jsonEncode(memeTexts.map((text) => {

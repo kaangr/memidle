@@ -1,1 +1,0 @@
- D:\\VisualStudioCodeProjects\\memidle_test\\.dart_tool\\flutter_build\\62133295a78531617786776d20a9a9d4\\native_assets.yaml: 

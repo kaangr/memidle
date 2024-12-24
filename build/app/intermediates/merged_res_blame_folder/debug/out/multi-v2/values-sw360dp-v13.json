@@ -4,7 +4,7 @@
             "outputFile": "com.example.memidle_test.app-mergeDebugResources-44:/values-sw360dp-v13/values-sw360dp-v13.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\kaan1\\.gradle\\caches\\transforms-3\\10d0d8c1f4c5c1b7a3b300d05f7ebb5e\\transformed\\preference-1.2.1\\res\\values-sw360dp-v13\\values-sw360dp-v13.xml",
+                    "source": "C:\\Users\\kaan1\\.gradle\\caches\\transforms-3\\f14b65e58679a47e5ef3236ca8dd84b8\\transformed\\preference-1.2.1\\res\\values-sw360dp-v13\\values-sw360dp-v13.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",

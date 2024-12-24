@@ -4,7 +4,7 @@
             "outputFile": "com.example.memidle_test.app-mergeDebugResources-44:/values-v24/values-v24.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\kaan1\\.gradle\\caches\\transforms-3\\af323369afd51d947c9051040e0a430a\\transformed\\material-1.9.0\\res\\values-v24\\values-v24.xml",
+                    "source": "C:\\Users\\kaan1\\.gradle\\caches\\transforms-3\\20092a18d2170ce9f821ef9122543669\\transformed\\material-1.9.0\\res\\values-v24\\values-v24.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,9,12,15",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -23,7 +23,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\kaan1\\.gradle\\caches\\transforms-3\\8b51bb040b32a2abc8f296afdae29f34\\transformed\\appcompat-1.6.1\\res\\values-v24\\values-v24.xml",
+                    "source": "C:\\Users\\kaan1\\.gradle\\caches\\transforms-3\\6f8b13f3abc4b422a616dfc2e1906997\\transformed\\appcompat-1.6.1\\res\\values-v24\\values-v24.xml",
                     "from": {
                         "startLines": "2,3",
                         "startColumns": "4,4",

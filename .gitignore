@@ -1,8 +1,7 @@
-# Flutter Build Output
-**/build/*
+# Dart tool and Flutter specific files
 .dart_tool/
 
-# Android Specific
+# Android build and IDE files
 android/.gradle
 android/app/build
 android/build
@@ -10,31 +9,31 @@ android/local.properties
 android/.idea
 android/.DS_Store
 
-# iOS Specific (If applicable)
+# iOS specific files
 ios/Pods
 ios/.symlinks
 ios/Flutter/Generated.xcconfig
 ios/build
 
-# APK'lar
+# APK files
 *.apk
 
-# Diğer Build Artifaktları
+# Other build artifacts
 *.ipa
 *.dSYM.zip
 
-# IntelliJ IDEA (veya benzer IDE'ler)
+# IntelliJ IDEA or similar IDE files
 .idea/
 *.iml
 *.ipr
 *.iws
 
-# VS Code
+# VS Code settings
 .vscode/
 
-# macOS sistem dosyaları
+# macOS system files
 .DS_Store
 
-# Uygulama depoları (örn. pubspec.lock, package-lock.json)
+# Dependency lock files
 pubspec.lock
 packages.lock

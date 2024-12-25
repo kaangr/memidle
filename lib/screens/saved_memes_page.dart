@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/database_helper.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'home_page.dart';
 
 class SavedMemesPage extends StatefulWidget {

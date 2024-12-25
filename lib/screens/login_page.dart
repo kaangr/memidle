@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import 'dart:math';
 import 'admin_page.dart';
+import '../app_theme.dart' as MyTheme;
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -111,9 +113,14 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   const SizedBox(height: 48),
                   TextFormField(
                     controller: _usernameController,
-                    decoration: const InputDecoration(
+                    decoration:  InputDecoration(
                       labelText: 'Username',
-                      border: OutlineInputBorder(),
+                      filled: true,
+                          fillColor: Color.fromARGB(255, 252, 233, 183),
+                          
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -125,9 +132,13 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Color.fromARGB(255, 252, 233, 183),
                       labelText: 'Password',
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     obscureText: true,
                     validator: (value) {

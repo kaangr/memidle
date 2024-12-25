@@ -6,10 +6,11 @@ import 'package:image_picker/image_picker.dart';
 import '../services/database_helper.dart';
 import 'dart:ui' as ui;
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:image_cropper/image_cropper.dart';
+
 import 'saved_memes_page.dart';
 import 'package:path_provider/path_provider.dart';
 import 'template_selection_page.dart';
+import 'package:image/image.dart' as img;
 
 
 final List<String> imagePaths = [
@@ -164,14 +165,8 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(Icons.text_fields),
               onPressed: _addNewText,
             ),
-            IconButton(
-              icon: const Icon(Icons.crop),
-              onPressed: _cropImage,
-            ),
-            IconButton(
-              icon: const Icon(Icons.rotate_right),
-              onPressed: _rotateImage,
-            ),
+            
+           
             IconButton(
               icon: const Icon(Icons.grid_view),
               onPressed: _selectTemplate,
@@ -346,55 +341,6 @@ class _HomePageState extends State<HomePage> {
     final completer = Completer<ui.Image>();
     ui.decodeImageFromList(data, completer.complete);
     return completer.future;
-  }
-
-  Future<void> _cropImage() async {
-    if (_selectedImage == null) return;
-
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: _selectedImage!.path,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: Theme.of(context).primaryColor,
-          toolbarWidgetColor: Colors.white,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(
-          title: 'Crop Image',
-        ),
-      ],
-    );
-
-    if (croppedFile != null) {
-      setState(() {
-        _selectedImage = File(croppedFile.path);
-      });
-    }
-  }
-
-  Future<void> _rotateImage() async {
-    if (_selectedImage == null) return;
-
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: _selectedImage!.path,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Rotate Image',
-          toolbarColor: Theme.of(context).primaryColor,
-          toolbarWidgetColor: Colors.white,
-        ),
-        IOSUiSettings(
-          title: 'Rotate Image',
-        ),
-      ],
-    );
-
-    if (croppedFile != null) {
-      setState(() {
-        _selectedImage = File(croppedFile.path);
-      });
-    }
   }
 
   Future<void> _selectTemplate() {
@@ -573,5 +519,20 @@ class _HomePageState extends State<HomePage> {
         _memeText!.strokeColor = _currentStrokeColor;
       });
     }
+  }
+
+  Future<File> resizeImage(File imageFile) async {
+    // Read the image file
+    final imageBytes = await imageFile.readAsBytes();
+    final image = img.decodeImage(imageBytes);
+
+    // Resize the image
+    final resizedImage = img.copyResize(image!, width: 800); // Set width to 800 pixels
+
+    // Create a new file for the resized image
+    final resizedFile = File(imageFile.path.replaceFirst(RegExp(r'\.(jpg|jpeg|png)$'), '_resized.png'));
+    await resizedFile.writeAsBytes(img.encodePng(resizedImage)); // Save as PNG
+
+    return resizedFile;
   }
 } 

@@ -1,0 +1,40 @@
+# Flutter Build Output
+**/build/*
+.dart_tool/
+
+# Android Specific
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+android/.idea
+android/.DS_Store
+
+# iOS Specific (If applicable)
+ios/Pods
+ios/.symlinks
+ios/Flutter/Generated.xcconfig
+ios/build
+
+# APK'lar
+*.apk
+
+# Diğer Build Artifaktları
+*.ipa
+*.dSYM.zip
+
+# IntelliJ IDEA (veya benzer IDE'ler)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code
+.vscode/
+
+# macOS sistem dosyaları
+.DS_Store
+
+# Uygulama depoları (örn. pubspec.lock, package-lock.json)
+pubspec.lock
+packages.lock

@@ -4,6 +4,7 @@ import 'home_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import 'dart:math';
+import 'admin_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -159,20 +160,31 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       final username = _usernameController.text;
       final password = _passwordController.text;
 
-      print('Username: $username, Password: $password'); // Hata ayıklama
-
       final user = await _dbHelper.loginUser(username, password);
 
       if (user != null) {
         final userId = user['userid']; // 'userid' alanını kontrol edin
         if (userId != null) {
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => HomePage(userId: userId as int),
-              ),
-            );
+          if (username == 'admin') {
+            // Admin kullanıcı ise Admin Paneline yönlendir
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AdminPage(),
+                ),
+              );
+            }
+          } else {
+            // Normal kullanıcı ise ana sayfaya yönlendir
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HomePage(userId: userId as int),
+                ),
+              );
+            }
           }
         } else {
           if (mounted) {

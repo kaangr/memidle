@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/database_helper.dart';
@@ -11,7 +10,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'saved_memes_page.dart';
 import 'package:path_provider/path_provider.dart';
 import 'template_selection_page.dart';
-import 'dart:math';
+
 
 final List<String> imagePaths = [
   'data/assets/images/memes/meme_1.jpeg',

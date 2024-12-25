@@ -4,7 +4,7 @@
             "outputFile": "com.example.memidle_test.app-mergeDebugResources-44:/values-zh/values-zh.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\kaan1\\.gradle\\caches\\transforms-3\\8195e277fcd1f69f83b388e6ce3bdbdf\\transformed\\jetified-ucrop-2.2.9\\res\\values-zh\\values-zh.xml",
+                    "source": "C:\\Users\\kaan1\\.gradle\\caches\\transforms-3\\d99bc89ee1823d427069de85c8ff1732\\transformed\\jetified-ucrop-2.2.9\\res\\values-zh\\values-zh.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7",
                         "startColumns": "4,4,4,4,4,4",

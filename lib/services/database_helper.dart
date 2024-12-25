@@ -24,7 +24,7 @@ class DatabaseMemeText {
 
 class DatabaseHelper {
   static Database? _database;
-  
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
@@ -33,7 +33,7 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'user.db');
-    
+
     print(path);
     return await openDatabase(
       path,
@@ -51,7 +51,7 @@ class DatabaseHelper {
         password TEXT NOT NULL
       )
     ''');
-    
+
     await db.execute('''
       CREATE TABLE memes(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +68,7 @@ class DatabaseHelper {
     if (oldVersion < 2) {
       // Mevcut tabloyu yedekle
       await db.execute('ALTER TABLE memes RENAME TO memes_old');
-      
+
       // Yeni tabloyu oluştur
       await db.execute('''
         CREATE TABLE memes(
@@ -80,13 +80,13 @@ class DatabaseHelper {
           FOREIGN KEY (user_id) REFERENCES users (userid)
         )
       ''');
-      
+
       // Eski verilerı yeni tabloya taşı
       await db.execute('''
         INSERT INTO memes (id, user_id, image_path, created_at)
         SELECT id, user_id, image_path, created_at FROM memes_old
       ''');
-      
+
       // Eski tabloyu sil
       await db.execute('DROP TABLE memes_old');
     }
@@ -105,7 +105,8 @@ class DatabaseHelper {
     }
   }
 
-  Future<Map<String, dynamic>?> loginUser(String username, String password) async {
+  Future<Map<String, dynamic>?> loginUser(
+      String username, String password) async {
     final db = await database;
     print('Attempting login with Username: $username, Password: $password');
 
@@ -123,16 +124,19 @@ class DatabaseHelper {
     return null;
   }
 
-  Future<void> saveMeme(int userId, String imagePath, List<DatabaseMemeText> memeTexts) async {
+  Future<void> saveMeme(
+      int userId, String imagePath, List<DatabaseMemeText> memeTexts) async {
     final db = await database;
 
-    String textsJson = jsonEncode(memeTexts.map((text) => {
-      'content': text.text,
-      'position_x': text.position.dx,
-      'position_y': text.position.dy,
-      'font_size': text.fontSize,
-      'color': text.color.value,
-    }).toList());
+    String textsJson = jsonEncode(memeTexts
+        .map((text) => {
+              'content': text.text,
+              'position_x': text.position.dx,
+              'position_y': text.position.dy,
+              'font_size': text.fontSize,
+              'color': text.color.value,
+            })
+        .toList());
 
     print('MemeTexts: $textsJson');
 
@@ -156,7 +160,7 @@ class DatabaseHelper {
 
   Future<void> deleteMeme(int memeId) async {
     final db = await database;
-    
+
     // Get the meme info first
     final meme = await db.query(
       'memes',
@@ -179,4 +183,25 @@ class DatabaseHelper {
       );
     }
   }
-} 
+
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    final db = await database;
+    return await db.query('users');
+  }
+
+  Future<int> getUserCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM users');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> getAllImagesByUsername(String username) async {
+    final db = await database;
+    return await db.query(
+      'memes',
+      where: 'user_id = (SELECT userid FROM users WHERE username = ?)',
+      whereArgs: [username],
+    );
+  }
+
+}

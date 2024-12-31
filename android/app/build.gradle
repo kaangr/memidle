@@ -1,7 +1,7 @@
 plugins {
     id "com.android.application"
     // START: FlutterFire Configuration
-    id 'com.google.gms.google-services'
+    
     // END: FlutterFire Configuration
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.example.memidle_test"
-    compileSdkVersion 34
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -24,11 +24,11 @@ android {
 
     defaultConfig {
         applicationId "com.example.new_firebase"
-        minSdkVersion 21
-        targetSdkVersion 34
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
-        multiDexEnabled true
+        minSdkVersion =21
+        targetSdkVersion = 34
+        versionCode =flutter.versionCode
+        versionName =flutter.versionName
+
     }
 
     buildTypes {
@@ -46,7 +46,7 @@ dependencies {
     implementation 'com.google.android.material:material:1.9.0'
     implementation platform('com.google.firebase:firebase-bom:32.7.1')
     implementation 'com.google.firebase:firebase-analytics'
-    implementation 'com.android.support:multidex:1.0.3'
+   
         
         constraints {
         implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.0") {

@@ -37,9 +37,8 @@ class DatabaseHelper {
     print(path);
     return await openDatabase(
       path,
-      version: 2,
+      version: 1,
       onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
     );
   }
 
@@ -62,34 +61,6 @@ class DatabaseHelper {
         FOREIGN KEY (user_id) REFERENCES users (userid)
       )
     ''');
-  }
-
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // Mevcut tabloyu yedekle
-      await db.execute('ALTER TABLE memes RENAME TO memes_old');
-
-      // Yeni tabloyu oluştur
-      await db.execute('''
-        CREATE TABLE memes(
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER,
-          image_path TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          texts TEXT,
-          FOREIGN KEY (user_id) REFERENCES users (userid)
-        )
-      ''');
-
-      // Eski verilerı yeni tabloya taşı
-      await db.execute('''
-        INSERT INTO memes (id, user_id, image_path, created_at)
-        SELECT id, user_id, image_path, created_at FROM memes_old
-      ''');
-
-      // Eski tabloyu sil
-      await db.execute('DROP TABLE memes_old');
-    }
   }
 
   Future<bool> registerUser(String username, String password) async {
@@ -202,6 +173,26 @@ class DatabaseHelper {
       where: 'user_id = (SELECT userid FROM users WHERE username = ?)',
       whereArgs: [username],
     );
+  }
+
+  Future<Map<String, dynamic>> getUserData(int userId) async {
+    final db = await database;
+    final result = await db.query(
+      'users',
+      where: 'userid = ?',
+      whereArgs: [userId],
+    );
+    return result.first;
+  }
+
+  Future<Map<String, dynamic>> getUserInfo(int userId) async {
+    final db = await database;
+    final result = await db.query(
+      'users',
+      where: 'userid = ?',
+      whereArgs: [userId],
+    );
+    return result.first;
   }
 
 }

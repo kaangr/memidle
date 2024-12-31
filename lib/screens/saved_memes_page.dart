@@ -1,11 +1,18 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../services/database_helper.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'home_page.dart';
+import 'drawing_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'dart:async';
+import 'package:http/http.dart' as http;
 
 class SavedMemesPage extends StatefulWidget {
-  final int userId;
+  final String userId;
   
   const SavedMemesPage({super.key, required this.userId});
 
@@ -14,16 +21,18 @@ class SavedMemesPage extends StatefulWidget {
 }
 
 class _SavedMemesPageState extends State<SavedMemesPage> {
-  final _dbHelper = DatabaseHelper();
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Saved Memes'),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>( 
-        future: _dbHelper.getUserMemes(widget.userId),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('memes')
+            .where('userId', isEqualTo: widget.userId)
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -33,7 +42,7 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
           
-          final memes = snapshot.data ?? [];
+          final memes = snapshot.data?.docs ?? [];
           
           if (memes.isEmpty) {
             return const Center(child: Text('No saved memes'));
@@ -57,21 +66,23 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
     );
   }
 
-  Widget _buildMemeCard(Map<String, dynamic> meme) {
-    final file = File(meme['image_path']);
-    final createdAt = DateTime.parse(meme['created_at']);
+  Widget _buildMemeCard(DocumentSnapshot meme) {
+    final memeData = meme.data() as Map<String, dynamic>;
+    final createdAt = (memeData['createdAt'] as Timestamp).toDate();
     
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
           GestureDetector(
-            onTap: () => _showMemePopup(file),
-            child: Image.file(
-              file,
+            onTap: () => _showMemePopup(memeData['imageUrl']),
+            child: CachedNetworkImage(
+              imageUrl: memeData['imageUrl'],
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
+              placeholder: (context, url) => Center(child: CircularProgressIndicator()),
+              errorWidget: (context, url, error) => Icon(Icons.error),
             ),
           ),
           Positioned(
@@ -79,7 +90,7 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
             top: 4,
             child: IconButton(
               icon: const Icon(Icons.delete, color: Colors.white),
-              onPressed: () => _deleteMeme(meme['id']),
+              onPressed: () => _deleteMeme(meme.id),
             ),
           ),
           Positioned(
@@ -99,7 +110,7 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
             top: 4,
             child: IconButton(
               icon: const Icon(Icons.share, color: Colors.white),
-              onPressed: () => _shareMeme(file),
+              onPressed: () => _shareMeme(memeData['imageUrl']),
             ),
           ),
         ],
@@ -107,22 +118,56 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
     );
   }
 
-  void _showMemePopup(File memeFile) {
+  void _showMemePopup(String imageUrl) {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          content: Column(
+        return Dialog(
+          insetPadding: EdgeInsets.all(16),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Image.file(memeFile),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _editMeme(memeFile);
-                },
-                child: const Text('Edit Meme'),
+              Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton.icon(
+                      icon: Icon(Icons.edit),
+                      label: Text('Edit'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _editMeme(imageUrl);
+                      },
+                    ),
+                    ElevatedButton.icon(
+                      icon: Icon(Icons.share),
+                      label: Text('Share'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _shareMeme(imageUrl);
+                      },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -131,18 +176,40 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
     );
   }
 
-  void _editMeme(File memeFile) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => HomePage(userId: widget.userId, selectedImage: memeFile),
-      ),
-    );
+  void _editMeme(String imageUrl) async {
+    try {
+      // URL'den resmi indir
+      final response = await http.get(Uri.parse(imageUrl));
+      final bytes = response.bodyBytes;
+      
+      // Geçici dosya oluştur
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/temp_meme.png');
+      await tempFile.writeAsBytes(bytes);
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DrawingPage(
+              userId: widget.userId,
+              selectedImage: tempFile,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading meme: $e')),
+        );
+      }
+    }
   }
 
-  Future<void> _shareMeme(File memeFile) async {
+  Future<void> _shareMeme(String imageUrl) async {
     try {
-      await Share.shareXFiles([XFile(memeFile.path)], text: 'Check out my meme!');
+      await Share.share(imageUrl, subject: 'Check out my meme!');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error sharing meme: $e')),
@@ -154,8 +221,7 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  Future<void> _deleteMeme(int memeId) async {
-    // Show confirmation dialog
+  Future<void> _deleteMeme(String memeId) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -175,8 +241,11 @@ class _SavedMemesPageState extends State<SavedMemesPage> {
     );
 
     if (confirm == true) {
-      await _dbHelper.deleteMeme(memeId);
-      setState(() {}); // Refresh the list
+      await FirebaseFirestore.instance
+          .collection('memes')
+          .doc(memeId)
+          .delete();
+      setState(() {});
     }
   }
 }

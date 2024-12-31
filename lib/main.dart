@@ -1,25 +1,27 @@
 import 'package:flutter/material.dart';
-import 'screens/login_page.dart';
-import 'screens/home_page.dart';
-import 'screens/admin_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:memidle_test/screens/login_page.dart';
+import 'firebase_options.dart';
 import 'app_theme.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Your App Title',
+      title: 'Memidle',
       theme: AppTheme.theme,
-      initialRoute: '/',
-      routes: {
-        '/': (context) => LoginPage(), // Giriş sayfası
-        '/home_page': (context) => HomePage(), // Ana sayfa
-        '/admin_panel': (context) => AdminPage(), // Admin paneli
-      },
+      home: const LoginPage(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }

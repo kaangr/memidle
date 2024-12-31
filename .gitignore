@@ -1,7 +1,7 @@
-# Dart tool and Flutter specific files
+
 .dart_tool/
 
-# Android build and IDE files
+
 android/.gradle
 android/app/build
 android/build
@@ -9,31 +9,31 @@ android/local.properties
 android/.idea
 android/.DS_Store
 
-# iOS specific files
+
 ios/Pods
 ios/.symlinks
 ios/Flutter/Generated.xcconfig
 ios/build
 
-# APK files
+
 *.apk
 
-# Other build artifacts
+
 *.ipa
 *.dSYM.zip
 
-# IntelliJ IDEA or similar IDE files
+
 .idea/
 *.iml
 *.ipr
 *.iws
 
-# VS Code settings
+
 .vscode/
 
-# macOS system files
+
 .DS_Store
 
-# Dependency lock files
+
 pubspec.lock
 packages.lock

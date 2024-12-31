@@ -2,13 +2,27 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
-import 'home_page.dart';
+import 'drawing_page.dart';
+
+final List<String> imagePaths = [
+  'data/assets/images/memes/meme_1.jpeg',
+  'data/assets/images/memes/meme_2.png',
+  'data/assets/images/memes/meme_3.png',
+  'data/assets/images/memes/meme_4.png',
+  'data/assets/images/memes/meme_5.png',
+  'data/assets/images/memes/meme_6.png',
+  'data/assets/images/memes/meme_7.png',
+  'data/assets/images/memes/meme_8.jpeg',
+  'data/assets/images/memes/meme_9.jpg',
+];
 
 class TemplateSelectionPage extends StatelessWidget {
+  final String userId;
   final Function(File) onTemplateSelected;
 
   const TemplateSelectionPage({
     Key? key,
+    required this.userId,
     required this.onTemplateSelected,
   }) : super(key: key);
 
@@ -29,11 +43,9 @@ class TemplateSelectionPage extends StatelessWidget {
         itemBuilder: (context, index) {
           return GestureDetector(
             onTap: () async {
-              // Asset'i geçici bir dosyaya kopyala
               final tempDir = await getTemporaryDirectory();
               final tempFile = File('${tempDir.path}/template_$index.png');
               
-              // Asset'i oku ve dosyaya yaz
               final byteData = await rootBundle.load(imagePaths[index]);
               await tempFile.writeAsBytes(
                 byteData.buffer.asUint8List(
@@ -42,8 +54,15 @@ class TemplateSelectionPage extends StatelessWidget {
                 ),
               );
               
-              onTemplateSelected(tempFile);
-              Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DrawingPage(
+                    userId: userId,
+                    selectedImage: tempFile,
+                  ),
+                ),
+              );
             },
             child: Card(
               child: Image.asset(

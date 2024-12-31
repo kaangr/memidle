@@ -6,7 +6,22 @@ import 'dart:async';
 import 'dart:math';
 import 'admin_page.dart';
 import '../app_theme.dart' as MyTheme;
+import 'register_page.dart';
+import 'drawing_page.dart';
+import '../services/firebase_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+final List<String> imagePaths = [
+  'data/assets/images/memes/meme_1.jpeg',
+  'data/assets/images/memes/meme_2.png',
+  'data/assets/images/memes/meme_3.png',
+  'data/assets/images/memes/meme_4.png',
+  'data/assets/images/memes/meme_5.png',
+  'data/assets/images/memes/meme_6.png',
+  'data/assets/images/memes/meme_7.png',
+  'data/assets/images/memes/meme_8.jpeg',
+  'data/assets/images/memes/meme_9.jpg',
+];
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -22,6 +37,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   final _dbHelper = DatabaseHelper();
   late AnimationController _controller;
   int _currentImageIndex = 0;
+  final FirebaseService _firebaseService = FirebaseService();
+  final _emailController = TextEditingController();
 
   @override
   void initState() {
@@ -112,6 +129,27 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   ),
                   const SizedBox(height: 48),
                   TextFormField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      filled: true,
+                      fillColor: Color.fromARGB(255, 252, 233, 183),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter email';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Please enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
                     controller: _usernameController,
                     decoration:  InputDecoration(
                       labelText: 'Username',
@@ -154,7 +192,14 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     child: const Text('Login'),
                   ),
                   TextButton(
-                    onPressed: _register,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RegisterPage(),
+                        ),
+                      );
+                    },
                     child: const Text('Create Account'),
                   ),
                 ],
@@ -168,46 +213,33 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      final username = _usernameController.text;
-      final password = _passwordController.text;
+      try {
+        final email = _emailController.text;
+        final password = _passwordController.text;
 
-      final user = await _dbHelper.loginUser(username, password);
+        final userCredential = await _firebaseService.loginUser(email, password);
+        final user = userCredential.user;
 
-      if (user != null) {
-        final userId = user['userid']; // 'userid' alanını kontrol edin
-        if (userId != null) {
-          if (username == 'admin') {
-            // Admin kullanıcı ise Admin Paneline yönlendir
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AdminPage(),
-                ),
-              );
-            }
-          } else {
-            // Normal kullanıcı ise ana sayfaya yönlendir
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => HomePage(userId: userId as int),
-                ),
-              );
-            }
-          }
-        } else {
+        if (user != null) {
+          // Firestore'dan kullanıcı bilgilerini al
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('User ID is null')),
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HomePage(userId: user.uid),
+              ),
             );
           }
         }
-      } else {
+      } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid credentials')),
+            SnackBar(content: Text('Login failed: ${e.toString()}')),
           );
         }
       }

@@ -32,17 +32,20 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
+  final _usernameOrEmailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _dbHelper = DatabaseHelper();
   late AnimationController _controller;
   int _currentImageIndex = 0;
   final FirebaseService _firebaseService = FirebaseService();
-  final _emailController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    // Debug için otomatik email ve şifre
+    _usernameOrEmailController.text = "eagen3195@gmail.com";
+    _passwordController.text = "Admin123";
+    
     _controller = AnimationController(
       duration: const Duration(seconds: 5),
       vsync: this,
@@ -129,9 +132,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   ),
                   const SizedBox(height: 48),
                   TextFormField(
-                    controller: _emailController,
+                    controller: _usernameOrEmailController,
                     decoration: InputDecoration(
-                      labelText: 'Email',
+                      labelText: 'Username or Email',
                       filled: true,
                       fillColor: Color.fromARGB(255, 252, 233, 183),
                       border: OutlineInputBorder(
@@ -140,29 +143,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration:  InputDecoration(
-                      labelText: 'Username',
-                      filled: true,
-                          fillColor: Color.fromARGB(255, 252, 233, 183),
-                          
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter username';
+                        return 'Please enter username or email';
                       }
                       return null;
                     },
@@ -171,9 +152,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   TextFormField(
                     controller: _passwordController,
                     decoration: InputDecoration(
+                      labelText: 'Password',
                       filled: true,
                       fillColor: Color.fromARGB(255, 252, 233, 183),
-                      labelText: 'Password',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -214,27 +195,23 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       try {
-        final email = _emailController.text;
+        final usernameOrEmail = _usernameOrEmailController.text;
         final password = _passwordController.text;
 
-        final userCredential = await _firebaseService.loginUser(email, password);
+        final userCredential = await _firebaseService.loginWithUsernameOrEmail(
+          usernameOrEmail,
+          password,
+        );
+        
         final user = userCredential.user;
 
-        if (user != null) {
-          // Firestore'dan kullanıcı bilgilerini al
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
-
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => HomePage(userId: user.uid),
-              ),
-            );
-          }
+        if (user != null && mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HomePage(userId: user.uid),
+            ),
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -249,7 +226,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       final success = await _dbHelper.registerUser(
-        _usernameController.text,
+        _usernameOrEmailController.text,
         _passwordController.text,
       );
       
@@ -271,7 +248,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _usernameOrEmailController.dispose();
     _passwordController.dispose();
     _controller.dispose();
     super.dispose();

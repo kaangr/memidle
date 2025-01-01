@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.memidle_test.app-mergeDebugResources-43:/values-night-v8/values-night-v8.xml",
+            "outputFile": "com.example.memidle_test.app-mergeDebugResources-44:/values-night-v8/values-night-v8.xml",
             "map": [
                 {
                     "source": "D:\\VisualStudioCodeProjects\\memidle_test\\android\\app\\src\\main\\res\\values-night\\styles.xml",

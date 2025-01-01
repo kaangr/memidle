@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.memidle_test.app-mergeDebugResources-43:/values-or/values-or.xml",
+            "outputFile": "com.example.memidle_test.app-mergeDebugResources-44:/values-or/values-or.xml",
             "map": [
                 {
                     "source": "C:\\Users\\kaan1\\.gradle\\caches\\transforms-3\\b2884dbf4ee3398b2907745768baeed2\\transformed\\core-1.13.1\\res\\values-or\\values-or.xml",

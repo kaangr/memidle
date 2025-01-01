@@ -11,13 +11,23 @@ class FirebaseService {
   // Kullanıcı işlemleri
   Future<UserCredential> registerUser(String username, String password, String email) async {
     try {
-      // Önce email/password ile kayıt
+      // Önce username'in benzersiz olduğunu kontrol et
+      final usernameCheck = await _firestore
+          .collection('users')
+          .where('username', isEqualTo: username)
+          .get();
+
+      if (usernameCheck.docs.isNotEmpty) {
+        throw Exception('Username already exists');
+      }
+
+      // Email/password ile kayıt
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // Sonra Firestore'a kullanıcı bilgilerini kaydet
+      // Firestore'a kullanıcı bilgilerini kaydet
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
         'username': username,
         'email': email,
@@ -33,8 +43,19 @@ class FirebaseService {
     }
   }
 
-  Future<UserCredential> loginUser(String email, String password) async {
+  Future<UserCredential> loginWithUsernameOrEmail(String usernameOrEmail, String password) async {
     try {
+      String email = usernameOrEmail;
+      
+      // Eğer @ işareti yoksa, bu bir username'dir
+      if (!usernameOrEmail.contains('@')) {
+        final foundEmail = await getEmailFromUsername(usernameOrEmail);
+        if (foundEmail == null) {
+          throw Exception('Username not found');
+        }
+        email = foundEmail;
+      }
+
       return await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -46,30 +67,61 @@ class FirebaseService {
   }
 
   // Meme işlemleri
-  Future<String> uploadMeme(File imageFile, String userId, List<Map<String, dynamic>> texts) async {
-    try {
-      String fileName = 'memes/$userId/${DateTime.now().millisecondsSinceEpoch}.png';
-      Reference ref = _storage.ref().child(fileName);
-      await ref.putFile(imageFile);
-      String downloadUrl = await ref.getDownloadURL();
-
-      DocumentReference memeRef = await _firestore.collection('memes').add({
-        'userId': userId,
-        'imageUrl': downloadUrl,
-        'texts': texts,
-        'createdAt': FieldValue.serverTimestamp(),
-        'averageRating': 0,
-        'totalRatings': 0,
-        'totalPoints': 0,
-        'memidleCount': 0,
-      });
-
-      return memeRef.id;
-    } catch (e) {
-      print('Upload meme error: $e');
-      rethrow;
+ Future<String> uploadMeme(File imageFile, String userId, List<Map<String, dynamic>> texts) async {
+  try {
+    print('Starting upload process...');
+    print('User ID: $userId');
+    
+    // Dosya kontrolü
+    if (!await imageFile.exists()) {
+      throw Exception('Image file does not exist');
     }
+    print('File exists at path: ${imageFile.path}');
+
+    // Storage referansını oluştur
+    final storageRef = FirebaseStorage.instance.ref();
+    final userMemeRef = storageRef.child('memes/$userId');
+    final fileName = DateTime.now().millisecondsSinceEpoch.toString() + '.png';
+    final fileRef = userMemeRef.child(fileName);
+    
+    print('Storage path: memes/$userId/$fileName');
+
+    // Metadata oluştur
+    final metadata = SettableMetadata(
+      contentType: 'image/png',
+      customMetadata: {'userId': userId}
+    );
+
+    // Resmi yükle
+    print('Starting file upload...');
+    await fileRef.putFile(imageFile, metadata);
+    print('Upload completed');
+
+    // URL al
+    final downloadUrl = await fileRef.getDownloadURL();
+    print('Download URL: $downloadUrl');
+
+    // Firestore'a kaydet
+    final memeRef = await _firestore.collection('memes').add({
+      'userId': userId,
+      'imageUrl': downloadUrl,
+      'texts': texts,
+      'createdAt': FieldValue.serverTimestamp(),
+      'averageRating': 0,
+      'totalRatings': 0,
+      'totalPoints': 0,
+      'memidleCount': 0,
+    });
+
+    print('Meme saved to Firestore with ID: ${memeRef.id}');
+    return memeRef.id;
+
+  } catch (e, stackTrace) {
+    print('Upload error: $e');
+    print('Stack trace: $stackTrace');
+    rethrow;
   }
+}
 
   // Kullanıcı bilgilerini al
   Future<Map<String, dynamic>> getUserInfo(String userId) async {
@@ -182,5 +234,24 @@ class FirebaseService {
     return date1.year == date2.year &&
            date1.month == date2.month &&
            date1.day == date2.day;
+  }
+
+  // Username'den email bulma
+  Future<String?> getEmailFromUsername(String username) async {
+    try {
+      final QuerySnapshot result = await _firestore
+          .collection('users')
+          .where('username', isEqualTo: username)
+          .limit(1)
+          .get();
+
+      if (result.docs.isNotEmpty) {
+        return (result.docs.first.data() as Map<String, dynamic>)['email'] as String;
+      }
+      return null;
+    } catch (e) {
+      print('Error getting email from username: $e');
+      return null;
+    }
   }
 } 

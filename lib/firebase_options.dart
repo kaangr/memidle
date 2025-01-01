@@ -54,7 +54,7 @@ class DefaultFirebaseOptions {
     appId: '1:460186603625:android:838cc35336a2db10d252f8',
     messagingSenderId: '460186603625',
     projectId: 'yeni-firebase',
-    storageBucket: 'yeni-firebase.firebasestorage.app',
+    storageBucket: 'yeni-firebase.appspot.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(

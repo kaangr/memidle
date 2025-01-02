@@ -4,14 +4,21 @@ import 'firebase_options.dart';
 import 'screens/login_page.dart';
 import 'app_theme.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Firebase'i başlat
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // App Check'i yapılandır
   await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.playIntegrity,
+    androidProvider: AndroidProvider.debug,
+    appleProvider: AppleProvider.debug,
   );
+
   runApp(const MyApp());
 }
 

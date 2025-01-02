@@ -49,6 +49,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-auth:20.7.0'
    implementation 'com.google.firebase:firebase-appcheck-playintegrity'
     implementation 'com.google.android.play:integrity:1.1.0'
+    implementation 'com.google.firebase:firebase-appcheck-debug:16.1.1'
         
         constraints {
         implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.0") {

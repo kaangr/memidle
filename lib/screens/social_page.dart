@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:memidle_test/screens/profile_page.dart';
 import '../services/firebase_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 class SocialPage extends StatefulWidget {
   final String userId;
@@ -23,75 +23,112 @@ class _SocialPageState extends State<SocialPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Social Feed'),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore
-            .collection('memes')
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Something went wrong'));
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          final memes = snapshot.data?.docs ?? [];
-
-          if (memes.isEmpty) {
-            return Center(child: Text('No memes yet'));
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              setState(() {});
-            },
-            child: ListView.builder(
-              controller: _scrollController,
-              itemCount: memes.length,
-              itemBuilder: (context, index) {
-                var meme = memes[index];
-                return _buildMemeCard(meme);
-              },
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProfilePage(userId: widget.userId),
+              ),
             ),
-          );
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Firestore cache'ini temizle ve yeni verileri getir
+          await FirebaseFirestore.instance.clearPersistence();
+          setState(() {});
+          return Future.delayed(const Duration(milliseconds: 500));
         },
+        child: StreamBuilder<QuerySnapshot>(
+          stream: _firestore
+              .collection('memes')
+              .orderBy('createdAt', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Text('Bir şeyler yanlış gitti: ${snapshot.error}'),
+              );
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final memes = snapshot.data?.docs ?? [];
+            
+            if (memes.isEmpty) {
+              return const Center(
+                child: Text('Henüz hiç meme paylaşılmamış'),
+              );
+            }
+
+            return ListView.builder(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(), // RefreshIndicator için gerekli
+              itemCount: memes.length,
+              itemBuilder: (context, index) => _buildMemeCard(memes[index]),
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _buildMemeCard(DocumentSnapshot meme) {
-    final memeData = meme.data() as Map<String, dynamic>;
+    final memeData = meme.data() as Map<String, dynamic>?;
+    if (memeData == null) return const SizedBox.shrink();
+    
+    final isOwnMeme = memeData['userId'] == widget.userId;
+    final String? imageUrl = memeData['imageUrl'] as String?;
+    if (imageUrl == null) return const SizedBox.shrink();
+    
+    final Timestamp? createdAt = memeData['createdAt'] as Timestamp?;
     
     return Card(
-      margin: EdgeInsets.all(8),
+      margin: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FutureBuilder<DocumentSnapshot>(
-            future: _firestore.collection('users').doc(memeData['userId']).get(),
-            builder: (context, userSnapshot) {
-              final username = userSnapshot.hasData 
-                  ? (userSnapshot.data!.data() as Map<String, dynamic>)['username'] 
-                  : 'User';
-              return Padding(
-                padding: EdgeInsets.all(8),
-                child: Text(
-                  'Created by: $username',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+          ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.person)),
+            title: FutureBuilder<DocumentSnapshot>(
+              future: _firestore.collection('users').doc(memeData['userId']).get(),
+              builder: (context, userSnapshot) {
+                if (!userSnapshot.hasData || userSnapshot.data == null) {
+                  return const Text('Loading...');
+                }
+                
+                final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+                return Text(userData?['username'] ?? 'Unknown User');
+              },
+            ),
+            subtitle: Text(
+              createdAt != null ? _formatTimestamp(createdAt) : 'Unknown time',
+            ),
+          ),
+          if (imageUrl.isNotEmpty)
+            Container(
+              constraints: const BoxConstraints(
+                maxHeight: 400,
+              ),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.contain,
+                memCacheHeight: 800,
+                placeholder: (context, url) => const Center(
+                  child: CircularProgressIndicator(),
                 ),
-              );
-            },
-          ),
-          CachedNetworkImage(
-            imageUrl: memeData['imageUrl'],
-            placeholder: (context, url) => Center(child: CircularProgressIndicator()),
-            errorWidget: (context, url, error) => Icon(Icons.error),
-          ),
+                errorWidget: (context, url, error) => const Center(
+                  child: Icon(Icons.error, size: 48, color: Colors.red),
+                ),
+              ),
+            ),
           Padding(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -99,38 +136,20 @@ class _SocialPageState extends State<SocialPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Rating: ${(memeData['averageRating'] as num).toStringAsFixed(1)}/10',
-                      style: TextStyle(fontSize: 16),
+                      'Rating: ${((memeData['averageRating'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)}/10',
+                      style: const TextStyle(fontSize: 16),
                     ),
                     Text(
-                      'Total Ratings: ${memeData['totalRatings']}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                      'Total Ratings: ${(memeData['totalRatings'] as num?)?.toInt() ?? 0}',
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.star_border),
-                      onPressed: () => _showRatingDialog(meme.id),
-                    ),
-                    FutureBuilder<bool>(
-                      future: _firebaseService.canUseMemidle(widget.userId),
-                      builder: (context, snapshot) {
-                        bool canUse = snapshot.data ?? false;
-                        return IconButton(
-                          icon: Icon(
-                            Icons.emoji_events,
-                            color: canUse ? Colors.amber : Colors.grey,
-                          ),
-                          onPressed: canUse
-                              ? () => _useMemidle(meme.id)
-                              : () => _showMemidleUsedMessage(),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                if (!isOwnMeme) // Kendi meme'ini oylayamaz
+                  IconButton(
+                    icon: const Icon(Icons.star_border),
+                    onPressed: () => _showRatingDialog(meme.id),
+                  ),
               ],
             ),
           ),
@@ -139,25 +158,55 @@ class _SocialPageState extends State<SocialPage> {
     );
   }
 
+  String _formatTimestamp(Timestamp timestamp) {
+    final now = DateTime.now();
+    final date = timestamp.toDate();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
   void _showRatingDialog(String memeId) {
-    double rating = 5.0;
+    int rating = 5;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Rate this meme'),
+        title: const Text('Rate this meme'),
         content: StatefulBuilder(
           builder: (context, setState) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('${rating.toStringAsFixed(1)}/10'),
-              Slider(
-                value: rating,
-                min: 0,
-                max: 10,
-                divisions: 20,
-                onChanged: (value) {
-                  setState(() => rating = value);
-                },
+              Text('$rating/10'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  for (int i = 1; i <= 10; i++)
+                    InkWell(
+                      onTap: () => setState(() => rating = i),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: rating >= i ? Colors.amber : Colors.grey[300],
+                        ),
+                        child: Text(
+                          '$i',
+                          style: TextStyle(
+                            color: rating >= i ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
@@ -165,16 +214,16 @@ class _SocialPageState extends State<SocialPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
               try {
-                await _firebaseService.rateMeme(memeId, widget.userId, rating);
+                await _firebaseService.rateMeme(memeId, widget.userId, rating.toDouble());
                 if (mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Rating submitted successfully!')),
+                    const SnackBar(content: Text('Rating submitted successfully!')),
                   );
                 }
               } catch (e) {
@@ -186,7 +235,7 @@ class _SocialPageState extends State<SocialPage> {
                 }
               }
             },
-            child: Text('Rate'),
+            child: const Text('Rate'),
           ),
         ],
       ),

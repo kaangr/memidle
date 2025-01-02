@@ -10,6 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/firebase_service.dart';
+import 'login_page.dart';
 
 class HomePage extends StatefulWidget {
   final String userId;
@@ -54,61 +55,34 @@ class _HomePageState extends State<HomePage> {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          DrawerHeader(
+          const DrawerHeader(
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
+              color: Colors.blue,
             ),
-            child: StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(widget.userId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  final userData = snapshot.data!.data() as Map<String, dynamic>;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CircleAvatar(
-                        radius: 40,
-                        child: Text(
-                          userData['username'][0].toUpperCase(),
-                          style: TextStyle(fontSize: 24),
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        userData['username'],
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ],
-                  );
-                }
-                return CircularProgressIndicator();
-              },
+            child: Text(
+              'Memidle',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+              ),
             ),
           ),
           ListTile(
-            leading: Icon(Icons.settings),
-            title: Text('Settings'),
-            onTap: () {
-              // Navigate to settings
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.exit_to_app),
-            title: Text('Logout'),
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
             onTap: () async {
               await FirebaseAuth.instance.signOut();
-              Navigator.pushReplacementNamed(context, '/');
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false,
+                );
+              }
             },
           ),
           ListTile(
-            leading: Icon(Icons.public),
-            title: Text('Social Feed'),
+            leading: const Icon(Icons.public),
+            title: const Text('Social Feed'),
             onTap: () {
               Navigator.push(
                 context,

@@ -67,61 +67,50 @@ class FirebaseService {
   }
 
   // Meme işlemleri
- Future<String> uploadMeme(File imageFile, String userId, List<Map<String, dynamic>> texts) async {
-  try {
-    print('Starting upload process...');
-    print('User ID: $userId');
-    
-    // Dosya kontrolü
-    if (!await imageFile.exists()) {
-      throw Exception('Image file does not exist');
+  Future<String?> uploadMeme(File file) async {
+    try {
+      // Authentication kontrolü
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Token'ı yenile
+      final idToken = await user.getIdToken(true);
+      print('User ID Token refreshed: ${idToken != null}');
+      print('Current User ID: ${user.uid}');
+
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
+      final storagePath = 'memes/${user.uid}/$fileName';
+      
+      print('Starting upload to path: $storagePath');
+      
+      final storageRef = _storage.ref().child(storagePath);
+      
+      // Metadata ekle
+      final metadata = SettableMetadata(
+        contentType: 'image/png',
+        customMetadata: {
+          'userId': user.uid,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
+      
+      // Upload işlemi
+      print('Starting file upload...');
+      final uploadTask = await storageRef.putFile(file, metadata);
+      print('Upload completed. Getting download URL...');
+      
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      print('Download URL obtained: $downloadUrl');
+      
+      return downloadUrl;
+    } catch (e, stackTrace) {
+      print('Upload error: $e');
+      print('Stack trace: $stackTrace');
+      rethrow; // Hatayı yukarı fırlat
     }
-    print('File exists at path: ${imageFile.path}');
-
-    // Storage referansını oluştur
-    final storageRef = FirebaseStorage.instance.ref();
-    final userMemeRef = storageRef.child('memes/$userId');
-    final fileName = DateTime.now().millisecondsSinceEpoch.toString() + '.png';
-    final fileRef = userMemeRef.child(fileName);
-    
-    print('Storage path: memes/$userId/$fileName');
-
-    // Metadata oluştur
-    final metadata = SettableMetadata(
-      contentType: 'image/png',
-      customMetadata: {'userId': userId}
-    );
-
-    // Resmi yükle
-    print('Starting file upload...');
-    await fileRef.putFile(imageFile, metadata);
-    print('Upload completed');
-
-    // URL al
-    final downloadUrl = await fileRef.getDownloadURL();
-    print('Download URL: $downloadUrl');
-
-    // Firestore'a kaydet
-    final memeRef = await _firestore.collection('memes').add({
-      'userId': userId,
-      'imageUrl': downloadUrl,
-      'texts': texts,
-      'createdAt': FieldValue.serverTimestamp(),
-      'averageRating': 0,
-      'totalRatings': 0,
-      'totalPoints': 0,
-      'memidleCount': 0,
-    });
-
-    print('Meme saved to Firestore with ID: ${memeRef.id}');
-    return memeRef.id;
-
-  } catch (e, stackTrace) {
-    print('Upload error: $e');
-    print('Stack trace: $stackTrace');
-    rethrow;
   }
-}
 
   // Kullanıcı bilgilerini al
   Future<Map<String, dynamic>> getUserInfo(String userId) async {
@@ -252,6 +241,38 @@ class FirebaseService {
     } catch (e) {
       print('Error getting email from username: $e');
       return null;
+    }
+  }
+
+  Future<void> deleteAccount(String userId) async {
+    try {
+      // Kullanıcının memelerini al
+      final memes = await _firestore
+          .collection('memes')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      // Storage'dan resimleri sil
+      for (var meme in memes.docs) {
+        final memeData = meme.data();
+        final imageUrl = memeData['imageUrl'] as String;
+        final storageRef = FirebaseStorage.instance.refFromURL(imageUrl);
+        await storageRef.delete();
+      }
+
+      // Firestore'dan memeleri sil
+      for (var meme in memes.docs) {
+        await meme.reference.delete();
+      }
+
+      // Kullanıcı dokümanını sil
+      await _firestore.collection('users').doc(userId).delete();
+
+      // Firebase Auth'dan kullanıcıyı sil
+      await _auth.currentUser?.delete();
+    } catch (e) {
+      print('Delete account error: $e');
+      rethrow;
     }
   }
 } 

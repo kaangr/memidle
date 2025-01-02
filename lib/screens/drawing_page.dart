@@ -159,6 +159,14 @@ class _DrawingPageState extends State<DrawingPage> {
     }
 
     try {
+      // Kullanıcı kontrolü
+      if (widget.userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login first')),
+        );
+        return;
+      }
+
       // Resmi ve text'i bir araya getir
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
@@ -209,27 +217,22 @@ class _DrawingPageState extends State<DrawingPage> {
       final tempFile = File('${tempDir.path}/temp_meme_${DateTime.now().millisecondsSinceEpoch}.png');
       await tempFile.writeAsBytes(buffer);
 
-      // Firebase Storage'a yükle
-      final memeId = await _firebaseService.uploadMeme(
-        tempFile,
-        widget.userId ?? '',
-        [
-          {
-            'text': _memeText!.text,
-            'position_x': _memeText!.position.dx,
-            'position_y': _memeText!.position.dy,
-            'font_size': _memeText!.fontSize,
-            'color': _memeText!.color.value,
-          }
-        ],
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Meme saved successfully')),
-      );
+      print('Uploading meme for user: ${widget.userId}');
       
-      Navigator.pop(context, true);
+      // Firebase Storage'a yükle
+      final downloadUrl = await _firebaseService.uploadMeme(tempFile);
+      
+      if (downloadUrl != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Meme saved successfully')),
+        );
+        Navigator.pop(context, true);
+      } else {
+        throw Exception('Failed to get download URL');
+      }
+      
     } catch (e) {
+      print('Error saving meme: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving meme: $e')),
       );

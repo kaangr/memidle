@@ -24,10 +24,10 @@ android {
 
     defaultConfig {
         applicationId "com.example.memidle_test"
-        minSdkVersion =21
-        targetSdkVersion = 34
-        versionCode =flutter.versionCode
-        versionName =flutter.versionName
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0.0"
 
     }
 
@@ -44,12 +44,13 @@ flutter {
 
 dependencies {
     implementation 'com.google.android.material:material:1.9.0'
-    implementation platform('com.google.firebase:firebase-bom:32.7.1')
+    implementation platform('com.google.firebase:firebase-bom:32.7.4')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.android.gms:play-services-auth:20.7.0'
-   implementation 'com.google.firebase:firebase-appcheck-playintegrity'
+    implementation 'com.google.firebase:firebase-appcheck-playintegrity:17.1.2'
     implementation 'com.google.android.play:integrity:1.1.0'
-    implementation 'com.google.firebase:firebase-appcheck-debug:16.1.1'
+    implementation 'com.google.firebase:firebase-appcheck-debug:17.1.2'
+    implementation 'com.google.firebase:firebase-appcheck'
         
         constraints {
         implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.0") {

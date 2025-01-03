@@ -43,25 +43,28 @@ class FirebaseService {
     }
   }
 
-  Future<UserCredential> loginWithUsernameOrEmail(String usernameOrEmail, String password) async {
+  Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
     try {
-      String email = usernameOrEmail;
-      
-      // Eğer @ işareti yoksa, bu bir username'dir
-      if (!usernameOrEmail.contains('@')) {
-        final foundEmail = await getEmailFromUsername(usernameOrEmail);
-        if (foundEmail == null) {
-          throw Exception('Username not found');
-        }
-        email = foundEmail;
-      }
-
-      return await _auth.signInWithEmailAndPassword(
+      final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      // Kullanıcı giriş yaptıktan sonra Firestore'da kullanıcı dokümanını kontrol et
+      final userDoc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
+      
+      // Eğer kullanıcı dokümanı yoksa oluştur
+      if (!userDoc.exists) {
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'email': email,
+          'username': email.split('@')[0],
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      return userCredential;
     } catch (e) {
-      print('Login error: $e');
+      print('🔥 Login Error: $e');
       rethrow;
     }
   }

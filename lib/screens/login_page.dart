@@ -38,6 +38,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   late AnimationController _controller;
   int _currentImageIndex = 0;
   final FirebaseService _firebaseService = FirebaseService();
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -193,31 +194,44 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   }
 
   Future<void> _login() async {
-    if (_formKey.currentState!.validate()) {
+    if (_formKey.currentState?.validate() ?? false) {
+      setState(() {
+        _isLoading = true;
+      });
+
       try {
-        final usernameOrEmail = _usernameOrEmailController.text;
-        final password = _passwordController.text;
-
-        final userCredential = await _firebaseService.loginWithUsernameOrEmail(
-          usernameOrEmail,
-          password,
+        final userCredential = await _firebaseService.signInWithEmailAndPassword(
+          _usernameOrEmailController.text.trim(),
+          _passwordController.text,
         );
-        
-        final user = userCredential.user;
 
-        if (user != null && mounted) {
+        if (!mounted) return;
+
+        final user = userCredential.user;
+        if (user != null) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (context) => HomePage(userId: user.uid),
             ),
           );
+        } else {
+          throw Exception('Login failed: User is null');
         }
       } catch (e) {
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login failed: ${e.toString()}')),
-          );
+          setState(() {
+            _isLoading = false;
+          });
         }
       }
     }

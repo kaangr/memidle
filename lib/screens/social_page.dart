@@ -37,10 +37,11 @@ class _SocialPageState extends State<SocialPage> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          // Firestore cache'ini temizle ve yeni verileri getir
-          await FirebaseFirestore.instance.clearPersistence();
-          setState(() {});
-          return Future.delayed(const Duration(milliseconds: 500));
+          // Basit bir yenileme için kısa bir bekleme
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            setState(() {});
+          }
         },
         child: StreamBuilder<QuerySnapshot>(
           stream: _firestore
@@ -79,82 +80,109 @@ class _SocialPageState extends State<SocialPage> {
   }
 
   Widget _buildMemeCard(DocumentSnapshot meme) {
+    print('🎨 Building meme card');
+    
     final memeData = meme.data() as Map<String, dynamic>?;
-    if (memeData == null) return const SizedBox.shrink();
+    if (memeData == null) {
+      print('❌ Meme data is null');
+      return const SizedBox.shrink();
+    }
     
-    final isOwnMeme = memeData['userId'] == widget.userId;
-    final String? imageUrl = memeData['imageUrl'] as String?;
-    if (imageUrl == null) return const SizedBox.shrink();
+    print('👤 Getting user data for ID: ${memeData['userId']}');
     
-    final Timestamp? createdAt = memeData['createdAt'] as Timestamp?;
-    
-    return Card(
-      margin: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: FutureBuilder<DocumentSnapshot>(
-              future: _firestore.collection('users').doc(memeData['userId']).get(),
-              builder: (context, userSnapshot) {
-                if (!userSnapshot.hasData || userSnapshot.data == null) {
-                  return const Text('Loading...');
-                }
-                
-                final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
-                return Text(userData?['username'] ?? 'Unknown User');
-              },
-            ),
-            subtitle: Text(
-              createdAt != null ? _formatTimestamp(createdAt) : 'Unknown time',
-            ),
-          ),
-          if (imageUrl.isNotEmpty)
-            Container(
-              constraints: const BoxConstraints(
-                maxHeight: 400,
-              ),
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.contain,
-                memCacheHeight: 800,
-                placeholder: (context, url) => const Center(
-                  child: CircularProgressIndicator(),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+        .collection('users')
+        .doc(memeData['userId'])
+        .snapshots(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.hasError) {
+          print('❌ User data error: ${userSnapshot.error}');
+          return const SizedBox.shrink();
+        }
+
+        if (!userSnapshot.hasData) {
+          print('⏳ Loading user data...');
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
+        if (userData == null) {
+          print('⚠️ User data is null');
+          return const SizedBox.shrink();
+        }
+
+        print('✅ User data loaded: ${userData['username']}');
+        
+        final isOwnMeme = memeData['userId'] == widget.userId;
+        final String? imageUrl = memeData['imageUrl'] as String?;
+        if (imageUrl == null) return const SizedBox.shrink();
+        
+        final Timestamp? createdAt = memeData['createdAt'] as Timestamp?;
+        
+        final username = userData?['username'] ?? 'Unknown User';
+        final timeAgo = createdAt != null ? _formatTimestamp(createdAt) : '';
+        
+        return Card(
+          margin: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ListTile(
+                leading: CircleAvatar(
+                  child: Text(username[0].toUpperCase()),
                 ),
-                errorWidget: (context, url, error) => const Center(
-                  child: Icon(Icons.error, size: 48, color: Colors.red),
-                ),
+                title: Text(username),
+                subtitle: Text(timeAgo),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              if (imageUrl.isNotEmpty)
+                Container(
+                  constraints: const BoxConstraints(
+                    maxHeight: 400,
+                  ),
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.contain,
+                    memCacheHeight: 800,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                    errorWidget: (context, url, error) => const Center(
+                      child: Icon(Icons.error, size: 48, color: Colors.red),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Rating: ${((memeData['averageRating'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)}/10',
-                      style: const TextStyle(fontSize: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Rating: ${((memeData['averageRating'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)}/10',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          'Total Ratings: ${(memeData['totalRatings'] as num?)?.toInt() ?? 0}',
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
                     ),
-                    Text(
-                      'Total Ratings: ${(memeData['totalRatings'] as num?)?.toInt() ?? 0}',
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
+                    if (memeData['userId'] != widget.userId) ...[  // Kendi meme'ini oylayamaz
+                      IconButton(
+                        icon: const Icon(Icons.star),
+                        onPressed: () => _showRatingDialog(meme.id),
+                      ),
+                    ],
                   ],
                 ),
-                if (!isOwnMeme) // Kendi meme'ini oylayamaz
-                  IconButton(
-                    icon: const Icon(Icons.star_border),
-                    onPressed: () => _showRatingDialog(meme.id),
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

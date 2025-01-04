@@ -44,8 +44,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
     // Debug için otomatik email ve şifre
-    _usernameOrEmailController.text = "eagen3195@gmail.com";
-    _passwordController.text = "Admin123";
+    _usernameOrEmailController.text = "kaan.osmanoglou@gmail.com";
+    _passwordController.text = "Kaan123";
     
     _controller = AnimationController(
       duration: const Duration(seconds: 5),

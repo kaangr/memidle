@@ -55,10 +55,13 @@ class FirebaseService {
       
       // Eğer kullanıcı dokümanı yoksa oluştur
       if (!userDoc.exists) {
+        final username = email.split('@')[0]; // Email'den username oluştur
         await _firestore.collection('users').doc(userCredential.user!.uid).set({
           'email': email,
-          'username': email.split('@')[0],
+          'username': username,
           'createdAt': FieldValue.serverTimestamp(),
+          'dailyMemidle': null,
+          'points': 0,
         });
       }
 
@@ -275,6 +278,35 @@ class FirebaseService {
       await _auth.currentUser?.delete();
     } catch (e) {
       print('Delete account error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> saveMeme(String userId, String imageUrl) async {
+    print('💾 Saving meme for user: $userId');
+    try {
+      // Önce kullanıcının var olduğunu kontrol edelim
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) {
+        print('❌ User document not found for ID: $userId');
+        throw Exception('User not found');
+      }
+
+      // Meme'i kaydedelim
+      final memeRef = await _firestore.collection('memes').add({
+        'userId': userId,  // Gerçek kullanıcı ID'si
+        'imageUrl': imageUrl,
+        'createdAt': FieldValue.serverTimestamp(),
+        'totalRatings': 0,
+        'averageRating': 0,
+        'username': userDoc.data()?['username'] ?? 'Unknown', // Username'i de ekleyelim
+      });
+
+      print('✅ Meme saved successfully with ID: ${memeRef.id}');
+      print('👤 Saved for user: ${userDoc.data()?['username']}');
+
+    } catch (e) {
+      print('❌ Error saving meme: $e');
       rethrow;
     }
   }

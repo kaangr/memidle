@@ -35,10 +35,14 @@ class MemeTextWidget {
 }
 
 class DrawingPage extends StatefulWidget {
-  final String? userId;
+  final String userId;
   final File? selectedImage;
 
-  const DrawingPage({super.key, this.userId, this.selectedImage});
+  const DrawingPage({
+    super.key,
+    required this.userId,
+    this.selectedImage,
+  });
 
   @override
   State<DrawingPage> createState() => _DrawingPageState();
@@ -160,12 +164,15 @@ class _DrawingPageState extends State<DrawingPage> {
 
     try {
       // Kullanıcı kontrolü
-      if (widget.userId == null) {
+      if (widget.userId.isEmpty) {
+        print('❌ User ID is empty');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please login first')),
         );
         return;
       }
+
+      print('🔄 Starting meme save process for user: ${widget.userId}');
 
       // Resmi ve text'i bir araya getir
       final recorder = ui.PictureRecorder();
@@ -223,10 +230,11 @@ class _DrawingPageState extends State<DrawingPage> {
       final downloadUrl = await _firebaseService.uploadMeme(tempFile);
       
       if (downloadUrl != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Meme saved successfully')),
-        );
-        Navigator.pop(context, true);
+        print('🆔 Current userId: ${widget.userId}');
+        await _firebaseService.saveMeme(widget.userId, downloadUrl);
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
       } else {
         throw Exception('Failed to get download URL');
       }

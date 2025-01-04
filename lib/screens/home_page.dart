@@ -28,7 +28,48 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Meme Studio'),
+        title: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(widget.userId)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              print('❌ Error loading user data: ${snapshot.error}');
+              return const Text('My Meme Studio');
+            }
+
+            if (!snapshot.hasData) {
+              return const Text('Loading...');
+            }
+
+            final userData = snapshot.data?.data() as Map<String, dynamic>?;
+            final username = userData?['username'] ?? 'Unknown User';
+            
+            print('👤 Loaded user data: $username');
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('My Meme Studio'),
+                Text(
+                  'Welcome, $username!',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => setState(() {}),
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
       drawer: _buildDrawer(),
       body: _buildMemeGrid(),
@@ -98,6 +139,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildMemeGrid() {
+    print('🏠 Building meme grid for user: ${widget.userId}');
+    
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('memes')
@@ -106,32 +149,56 @@ class _HomePageState extends State<HomePage> {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Center(child: Text('Something went wrong'));
+          print('❌ Home Page Error: ${snapshot.error}');
+          return Center(
+            child: Text('Bir hata oluştu: ${snapshot.error}'),
+          );
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
-
-        final memes = snapshot.data!.docs;
-
-        if (memes.isEmpty) {
-          return Center(
-            child: SingleChildScrollView(
-              physics: AlwaysScrollableScrollPhysics(),
-              child: Container(
-                height: MediaQuery.of(context).size.height * 0.7,
-                child: Center(
-                  child: Text('No memes yet. Create your first meme!'),
-                ),
-              ),
+          print('⏳ Loading memes...');
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
             ),
           );
         }
 
+        final memes = snapshot.data?.docs ?? [];
+        print('📊 Found ${memes.length} memes for user');
+
+        if (memes.isEmpty) {
+          print('📭 No memes found for user');
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  'Henüz meme oluşturmadınız',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DrawingPage(userId: widget.userId),
+                    ),
+                  ),
+                  icon: Icon(Icons.add),
+                  label: Text('Yeni Meme Oluştur'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        print('🖼️ Rendering meme grid');
         return GridView.builder(
-          physics: AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.all(8),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(8),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 8,

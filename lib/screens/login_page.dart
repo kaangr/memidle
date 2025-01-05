@@ -79,44 +79,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       ),
       body: Stack(
         children: [
-          // Arkaplan animasyonu
-          Positioned(
-            right: -cardSize.width / 2, // Sağa kaydırma
-            top: screenSize.height / 2 - cardSize.height / 2,
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                return Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001) // Perspektif için
-                    ..rotateY(_controller.value * 2 * pi) // Y ekseni etrafında dönme
-                    ..translate(50 * cos(_controller.value * 2 * pi)), // Sağa-sola hareket
-                  child: Card(
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(15),
-                      child: SizedBox(
-                        width: cardSize.width,
-                        height: cardSize.height,
-                        child: Opacity(
-                          opacity: 0.3,
-                          child: Image.asset(
-                            imagePaths[_currentImageIndex],
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          // Login form
+        
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Form(
@@ -124,6 +87,26 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  const SizedBox(height: 32),
+                  ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [
+                        Theme.of(context).colorScheme.primary,
+                        Theme.of(context).colorScheme.secondary,
+                        Theme.of(context).colorScheme.tertiary,
+                      ],
+                    ).createShader(bounds),
+                    child: Text(
+                      'Turn your imagination into a Meme.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 60),
                   Text(
                     'Memidle.',
                     style: GoogleFonts.abrilFatface(
@@ -137,10 +120,19 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     decoration: InputDecoration(
                       labelText: 'Username or Email',
                       filled: true,
-                      fillColor: Color.fromARGB(255, 252, 233, 183),
+                      fillColor: Theme.of(context).brightness == Brightness.dark 
+                          ? Colors.grey[800] // Dark mode için koyu gri
+                          : Colors.grey[100], // Light mode için açık gri
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
                       ),
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -155,10 +147,19 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     decoration: InputDecoration(
                       labelText: 'Password',
                       filled: true,
-                      fillColor: Color.fromARGB(255, 252, 233, 183),
+                      fillColor: Theme.of(context).brightness == Brightness.dark 
+                          ? Colors.grey[800] 
+                          : Colors.grey[100],
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
                       ),
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     obscureText: true,
                     validator: (value) {
@@ -212,7 +213,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => HomePage(userId: user.uid),
+              builder: (context) => HomePage(userId: user.uid, isDarkMode: false, onThemeToggle: () {}),
             ),
           );
         } else {
@@ -237,6 +238,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     }
   }
 
+
+// sqlite tan kalma şuanda kullanılmıyor.
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       final success = await _dbHelper.registerUser(

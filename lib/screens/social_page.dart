@@ -91,7 +91,7 @@ class _SocialPageState extends State<SocialPage> {
       return const SizedBox.shrink();
     }
     
-    print('👤 Getting user data for ID: ${memeData['userId']}');
+    print(' Getting user data for ID: ${memeData['userId']}');
     
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
@@ -100,18 +100,18 @@ class _SocialPageState extends State<SocialPage> {
         .snapshots(),
       builder: (context, userSnapshot) {
         if (userSnapshot.hasError) {
-          print('❌ User data error: ${userSnapshot.error}');
+          print(' User data error: ${userSnapshot.error}');
           return const SizedBox.shrink();
         }
 
         if (!userSnapshot.hasData) {
-          print('⏳ Loading user data...');
+          print('Loading user data...');
           return const Center(child: CircularProgressIndicator());
         }
 
         final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
         if (userData == null) {
-          print('⚠️ User data is null');
+          print('User data is null');
           return const SizedBox.shrink();
         }
 
@@ -127,7 +127,7 @@ class _SocialPageState extends State<SocialPage> {
         final timeAgo = createdAt != null ? _formatTimestamp(createdAt) : '';
         
         return Card(
-          margin: const EdgeInsets.all(8),
+          color: Theme.of(context).colorScheme.surface,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -135,8 +135,19 @@ class _SocialPageState extends State<SocialPage> {
                 leading: CircleAvatar(
                   child: Text(username[0].toUpperCase()),
                 ),
-                title: Text(username),
-                subtitle: Text(timeAgo),
+                title: Text(
+                  username,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text(
+                  timeAgo,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
               if (imageUrl.isNotEmpty)
                 Container(
@@ -188,11 +199,15 @@ class _SocialPageState extends State<SocialPage> {
                   // Normal rating yıldızları
                   Row(
                     children: List.generate(5, (index) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
                       return IconButton(
                         icon: Icon(
                           index < (memeData['averageRating'] ?? 0).floor()
                               ? Icons.star
                               : Icons.star_border,
+                          color: index < (memeData['averageRating'] ?? 0).floor()
+                              ? Colors.amber
+                              : isDark ? Colors.grey[400] : Colors.grey[600],
                         ),
                         onPressed: () => _firebaseService.rateMeme(meme.id, index + 1, widget.userId),
                       );
@@ -203,9 +218,12 @@ class _SocialPageState extends State<SocialPage> {
                     future: _firebaseService.canGiveMemidle(widget.userId, meme.id),
                     builder: (context, snapshot) {
                       final canGive = snapshot.data ?? false;
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
                       return Container(
                         decoration: BoxDecoration(
-                          color: canGive ? Colors.amber.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+                          color: canGive 
+                              ? Colors.amber.withOpacity(0.2)
+                              : isDark ? Colors.grey[800] : Colors.grey[300],
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Material(
@@ -226,7 +244,9 @@ class _SocialPageState extends State<SocialPage> {
                               child: Text(
                                 'Memidle.',
                                 style: GoogleFonts.abrilFatface(
-                                  color: canGive ? Colors.amber : Colors.black,
+                                  color: canGive 
+                                      ? Colors.amber
+                                      : isDark ? Colors.grey[400] : Colors.grey[700],
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -283,12 +303,19 @@ class _SocialPageState extends State<SocialPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rate this meme'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'Rate this meme',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
         content: StatefulBuilder(
           builder: (context, setState) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('$rating/10'),
+              Text(
+                '$rating/10',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -299,12 +326,18 @@ class _SocialPageState extends State<SocialPage> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: rating >= i ? Colors.amber : Colors.grey[300],
+                          color: rating >= i 
+                              ? Colors.amber 
+                              : Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[800]
+                                  : Colors.grey[300],
                         ),
                         child: Text(
                           '$i',
                           style: TextStyle(
-                            color: rating >= i ? Colors.white : Colors.black,
+                            color: rating >= i 
+                                ? Colors.white 
+                                : Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

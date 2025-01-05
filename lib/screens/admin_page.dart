@@ -129,7 +129,7 @@ class _AdminPageState extends State<AdminPage> {
 
   Future<void> _deleteMeme(String memeId) async {
     try {
-      // Önce Firestore'dan meme bilgilerini al
+      // firestoredan meme bilgilerini al
       final memeDoc = await _firestore.collection('memes').doc(memeId).get();
       final memeData = memeDoc.data() as Map<String, dynamic>;
       final imageUrl = memeData['imageUrl'] as String;
@@ -138,7 +138,7 @@ class _AdminPageState extends State<AdminPage> {
       final storageRef = FirebaseStorage.instance.refFromURL(imageUrl);
       await storageRef.delete();
 
-      // Firestore'dan meme dokümanını sil
+      // Firestore'dan memei sil
       await _firestore.collection('memes').doc(memeId).delete();
 
       ScaffoldMessenger.of(context).showSnackBar(

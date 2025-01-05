@@ -43,29 +43,35 @@ class FirebaseService {
     }
   }
 
-  Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
+  Future<UserCredential> signInWithEmailAndPassword(String usernameOrEmail, String password) async {
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      // Önce email formatında mı kontrol et
+      if (usernameOrEmail.contains('@')) {
+        return await _auth.signInWithEmailAndPassword(
+          email: usernameOrEmail.trim(),
+          password: password,
+        );
+      } else {
+        // Username ile giriş yapılıyorsa, önce firestore'dan email'i bul
+        final userDoc = await _firestore
+            .collection('users')
+            .where('username', isEqualTo: usernameOrEmail.trim())
+            .get();
 
-      // Kullanıcı giriş yaptıktan sonra Firestore'da kullanıcı dokümanını kontrol et
-      final userDoc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
-      
-      // Eğer kullanıcı dokümanı yoksa oluştur
-      if (!userDoc.exists) {
-        final username = email.split('@')[0]; // Email'den username oluştur
-        await _firestore.collection('users').doc(userCredential.user!.uid).set({
-          'email': email,
-          'username': username,
-          'createdAt': FieldValue.serverTimestamp(),
-          'dailyMemidle': null,
-          'points': 0,
-        });
+        if (userDoc.docs.isEmpty) {
+          throw FirebaseAuthException(
+            code: 'user-not-found',
+            message: 'No user found with this username',
+          );
+        }
+
+        // Kullanıcının email'ini al ve onunla giriş yap
+        final userEmail = userDoc.docs.first.get('email') as String;
+        return await _auth.signInWithEmailAndPassword(
+          email: userEmail,
+          password: password,
+        );
       }
-
-      return userCredential;
     } catch (e) {
       print('🔥 Login Error: $e');
       rethrow;
@@ -154,7 +160,7 @@ class FirebaseService {
         throw Exception('You cannot rate your own meme');
       }
 
-      // Kullanıcının daha önce bu meme'e oy verip vermediğini kontrol et
+      // Kullanıcının daha önce bu memee oy verip vermediğini kontrol et
       final ratingDoc = await _firestore
           .collection('memes')
           .doc(memeId)
@@ -166,7 +172,7 @@ class FirebaseService {
         throw Exception('You have already rated this meme');
       }
 
-      // Yeni rating'i kaydet
+      // Yeni ratingi kaydet
       await _firestore
           .collection('memes')
           .doc(memeId)
@@ -177,7 +183,7 @@ class FirebaseService {
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      // Mevcut rating değerlerini al
+      // mevcut rating değerlerini al
       final currentTotalRatings = (memeData['totalRatings'] ?? 0) as int;
       double currentAverageRating;
       final rawAvgRating = memeData['averageRating'];
@@ -189,24 +195,24 @@ class FirebaseService {
         currentAverageRating = (rawAvgRating as num).toDouble();
       }
 
-      // Yeni değerleri hesapla
+      // yeni değerleri hesapla
       final newTotalRatings = currentTotalRatings + 1;
       final newAverageRating = ((currentAverageRating * currentTotalRatings) + rating) / newTotalRatings;
 
-      // Meme'i güncelle
+      // meme'i güncelle
       await _firestore.collection('memes').doc(memeId).update({
         'totalRatings': newTotalRatings,
         'averageRating': newAverageRating,
       });
 
-      print('✅ Rating saved successfully');
+      print(' Rating saved successfully');
     } catch (e) {
-      print('❌ Rate meme error: $e');
+      print(' Rate meme error: $e');
       rethrow;
     }
   }
 
-  // Kullanıcının bir meme'e daha önce oy verip vermediğini kontrol et
+  // kullanıcının bir meme'e daha önce oy verip vermediğini kontrol et
   Future<bool> canRateMeme(String memeId, String userId) async {
     try {
       final memeDoc = await _firestore.collection('memes').doc(memeId).get();
@@ -214,10 +220,10 @@ class FirebaseService {
       
       if (memeData == null) return false;
       
-      // Kendi meme'ini oylayamaz
+      // kendi meme'ini oylayamaz
       if (memeData['userId'] == userId) return false;
 
-      // Daha önce oy verip vermediğini kontrol et
+      // daha önce oy verip vermediğini kontrol et
       final ratingDoc = await _firestore
           .collection('memes')
           .doc(memeId)
@@ -232,17 +238,17 @@ class FirebaseService {
     }
   }
 
-  // Memidle puanı için yeni metod
+  // memidle puanı için yeni metod
   Future<bool> canGiveMemidle(String userId, String memeId) async {
     try {
-      // Kendi meme'ini kontrol et
+      // kendi meme'ini kontrol et
       final memeDoc = await _firestore.collection('memes').doc(memeId).get();
       final memeData = memeDoc.data();
       if (memeData?['userId'] == userId) {
         return false; // Kendi meme'ine puan veremez
       }
 
-      // Günlük puanlama hakkını kontrol et
+      // günlük puanlama hakkını kontrol et
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       
@@ -263,14 +269,14 @@ class FirebaseService {
       
       return true;
     } catch (e) {
-      print('❌ Check Memidle error: $e');
+      print('Check Memidle error: $e');
       return false;
     }
   }
 
   Future<void> giveMemidle(String userId, String memeId) async {
     try {
-      // Meme sahibinin ID'sini al
+      // meme sahibinin idsini al
       final memeDoc = await _firestore.collection('memes').doc(memeId).get();
       final memeOwnerId = memeDoc.data()?['userId'] as String;
       
@@ -282,7 +288,7 @@ class FirebaseService {
         'points': currentPoints + 50,
       });
       
-      // Puanlayan kullanıcının son Memidle tarihini güncelle
+      // puanlayan kullanıcının son Memidle tarihini güncelle
       await _firestore.collection('users').doc(userId).update({
         'lastMemidleDate': FieldValue.serverTimestamp(),
       });
@@ -292,14 +298,14 @@ class FirebaseService {
     }
   }
 
-  // Yardımcı metod - aynı gün kontrolü
+  // aynı gün kontrolü
   bool _isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
            date1.month == date2.month &&
            date1.day == date2.day;
   }
 
-  // Username'den email bulma
+  // username'den email bulma
   Future<String?> getEmailFromUsername(String username) async {
     try {
       final QuerySnapshot result = await _firestore
@@ -320,13 +326,13 @@ class FirebaseService {
 
   Future<void> deleteAccount(String userId) async {
     try {
-      // Kullanıcının memelerini al
+      // kullanıcının memelerini al
       final memes = await _firestore
           .collection('memes')
           .where('userId', isEqualTo: userId)
           .get();
 
-      // Storage'dan resimleri sil
+      // storagedan resimleri sil
       for (var meme in memes.docs) {
         final memeData = meme.data();
         final imageUrl = memeData['imageUrl'] as String;
@@ -334,15 +340,15 @@ class FirebaseService {
         await storageRef.delete();
       }
 
-      // Firestore'dan memeleri sil
+      // firestore'dan memeleri sil
       for (var meme in memes.docs) {
         await meme.reference.delete();
       }
 
-      // Kullanıcı dokümanını sil
+      // kullanıcı dokümanını sil
       await _firestore.collection('users').doc(userId).delete();
 
-      // Firebase Auth'dan kullanıcıyı sil
+      // firebase authdan kullanıcıyı sil
       await _auth.currentUser?.delete();
     } catch (e) {
       print('Delete account error: $e');
@@ -351,11 +357,11 @@ class FirebaseService {
   }
 
   Future<void> saveMeme(String userId, String imageUrl, {bool isPublic = false}) async {
-    print('💾 Saving meme for user: $userId');
+    print('Saving meme for user: $userId');
     try {
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (!userDoc.exists) {
-        print('❌ User document not found for ID: $userId');
+        print('User document not found for ID: $userId');
         throw Exception('User not found');
       }
 
@@ -365,16 +371,16 @@ class FirebaseService {
         'imageUrl': imageUrl,
         'createdAt': FieldValue.serverTimestamp(),
         'totalRatings': 0,
-        'averageRating': 0.0,  // Double olarak başlat
+        'averageRating': 0.0,  // Double 
         'username': userDoc.data()?['username'] ?? 'Unknown',
-        'isPublic': isPublic,  // Yeni alan
-        'totalMemidlePoints': 0,  // Yeni alan
-        'memidleCount': 0,  // Yeni alan
+        'isPublic': isPublic,  // 
+        'totalMemidlePoints': 0,  // 
+        'memidleCount': 0,  // 
       });
 
-      print('✅ Meme saved successfully with ID: ${memeRef.id}');
+      print('Meme saved successfully with ID: ${memeRef.id}');
     } catch (e) {
-      print('❌ Error saving meme: $e');
+      print('Error saving meme: $e');
       rethrow;
     }
   }

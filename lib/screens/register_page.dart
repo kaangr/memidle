@@ -35,7 +35,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
-                  final regex = RegExp(r'^[a-zA-Z0-9]{3,}$'); // At least 3 alphanumeric characters
+                  final regex = RegExp(r'^[a-zA-Z0-9]{3,}$'); 
                   if (value == null || value.isEmpty || !regex.hasMatch(value)) {
                     return 'Please enter a valid username (at least 3 characters)';
                   }
@@ -72,7 +72,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 obscureText: true,
                 validator: (value) {
-                  final regex = RegExp(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$'); // At least 6 characters, 1 letter, 1 number
+                  final regex = RegExp(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$'); 
                   if (value == null || value.isEmpty || !regex.hasMatch(value)) {
                     return 'Password must be at least 6 characters long and contain at least 1 letter and 1 number';
                   }
@@ -104,7 +104,7 @@ class _RegisterPageState extends State<RegisterPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Registration successful')),
           );
-          Navigator.pop(context);  // Login sayfasına geri dön
+          Navigator.pop(context);  
         }
       } catch (e, stackTrace) {
         if (mounted) {

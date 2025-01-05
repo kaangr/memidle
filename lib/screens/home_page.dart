@@ -14,8 +14,15 @@ import 'login_page.dart';
 
 class HomePage extends StatefulWidget {
   final String userId;
+  final bool isDarkMode;
+  final Function() onThemeToggle;
   
-  const HomePage({super.key, required this.userId});
+  const HomePage({
+    super.key, 
+    required this.userId,
+    required this.isDarkMode,
+    required this.onThemeToggle,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -77,21 +84,34 @@ class _HomePageState extends State<HomePage> {
       body: _buildMemeGrid(),
       bottomNavigationBar: _hasSelectedMeme
           ? BottomAppBar(
-              child: Padding(
+              child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Seçili meme\'i paylaş',
-                      style: TextStyle(fontSize: 16),
+                    Expanded(
+                      child: Text(
+                        'Seçili meme\'i paylaş',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     ElevatedButton.icon(
-                      icon: Icon(Icons.public),
-                      label: Text('Herkese Açık Paylaş'),
+                      icon: const Icon(Icons.public, size: 20),
+                      label: const Text(
+                        'Paylaş',
+                        style: TextStyle(fontSize: 14),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.amber,
                         foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
                       onPressed: () => _toggleMemeVisibility(_selectedMemeId!, false),
                     ),
@@ -123,29 +143,30 @@ class _HomePageState extends State<HomePage> {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const DrawerHeader(
+          DrawerHeader(
             decoration: BoxDecoration(
-              color: Colors.blue,
+              color: Theme.of(context).colorScheme.primary,
             ),
             child: Text(
               'Memidle',
               style: TextStyle(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onPrimary,
                 fontSize: 24,
               ),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Logout'),
-            onTap: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                  (route) => false,
-                );
-              }
+          SwitchListTile(
+            title: Text(
+              'Dark Mode',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+            secondary: Icon(
+              widget.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            value: widget.isDarkMode,
+            onChanged: (bool value) {
+              widget.onThemeToggle();
             },
           ),
           ListTile(
@@ -160,13 +181,26 @@ class _HomePageState extends State<HomePage> {
               );
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false,
+                );
+              }
+            },
+          ),
         ],
       ),
     );
   }
 
   Widget _buildMemeGrid() {
-    print('🏠 Building meme grid for user: ${widget.userId}');
+    print('Building meme grid for user: ${widget.userId}');
     
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -176,14 +210,14 @@ class _HomePageState extends State<HomePage> {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          print('❌ Home Page Error: ${snapshot.error}');
+          print('Home Page Error: ${snapshot.error}');
           return Center(
             child: Text('Bir hata oluştu: ${snapshot.error}'),
           );
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          print('⏳ Loading memes...');
+          print('Loading memes...');
           return const Center(
             child: CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
@@ -192,7 +226,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         final memes = snapshot.data?.docs ?? [];
-        print('📊 Found ${memes.length} memes for user');
+        print('Found ${memes.length} memes for user');
 
         if (memes.isEmpty) {
           print('📭 No memes found for user');
@@ -222,7 +256,7 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        print('🖼️ Rendering meme grid');
+        print(' Rendering meme grid');
         return GridView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(8),
@@ -394,17 +428,3 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 }
-
-class Achievement {
-  final String title;
-  final int points;
-  final IconData icon;
-  final bool isDaily;
-
-  Achievement({
-    required this.title,
-    required this.points,
-    required this.icon,
-    required this.isDaily,
-  });
-} 

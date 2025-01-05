@@ -53,7 +53,8 @@ class _DrawingPageState extends State<DrawingPage> {
   final _textController = TextEditingController();
   final FirebaseService _firebaseService = FirebaseService();
   final ImagePicker _picker = ImagePicker();
-  MemeTextWidget? _memeText;
+  List<MemeTextWidget> _memeTexts = [];
+  int? _selectedTextIndex;
   
   double _currentFontSize = 24;
   Color _currentColor = Colors.white;
@@ -91,31 +92,51 @@ class _DrawingPageState extends State<DrawingPage> {
                   InteractiveViewer(
                     child: Image.file(_selectedImage!),
                   ),
-                  if (_memeText != null)
-                    Positioned(
-                      left: _memeText!.position.dx,
-                      top: _memeText!.position.dy,
+                  ..._memeTexts.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final text = entry.value;
+                    return Positioned(
+                      left: text.position.dx,
+                      top: text.position.dy,
                       child: GestureDetector(
-                        onPanUpdate: (details) {
+                        onTap: () {
                           setState(() {
-                            _memeText!.position += details.delta;
+                            _selectedTextIndex = index;
+                            _textController.text = text.text;
+                            _currentFontSize = text.fontSize;
+                            _currentColor = text.color;
+                            _currentStrokeWidth = text.strokeWidth;
+                            _currentStrokeColor = text.strokeColor;
                           });
                         },
-                        child: Text(
-                          _memeText!.text,
-                          style: TextStyle(
-                            fontSize: _memeText!.fontSize,
-                            color: _memeText!.color,
-                            shadows: [
-                              Shadow(
-                                color: _memeText!.strokeColor,
-                                blurRadius: _currentBlurRadius,
-                              ),
-                            ],
+                        onPanUpdate: (details) {
+                          setState(() {
+                            text.position += details.delta;
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: _selectedTextIndex == index
+                                ? Border.all(color: Colors.blue, width: 1)
+                                : null,
+                          ),
+                          child: Text(
+                            text.text,
+                            style: TextStyle(
+                              fontSize: text.fontSize,
+                              color: text.color,
+                              shadows: [
+                                Shadow(
+                                  color: text.strokeColor,
+                                  blurRadius: _currentBlurRadius,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    );
+                  }).toList(),
                 ],
               ),
             )
@@ -125,7 +146,7 @@ class _DrawingPageState extends State<DrawingPage> {
                 child: Text('No image selected'),
               ),
             ),
-          if (_memeText != null) _buildTextEditingPanel(),
+          if (_selectedTextIndex != null) _buildTextEditingPanel(),
         ],
       ),
       bottomNavigationBar: BottomAppBar(
@@ -155,7 +176,7 @@ class _DrawingPageState extends State<DrawingPage> {
   }
 
   Future<void> _saveMeme() async {
-    if (_selectedImage == null || _memeText == null) {
+    if (_selectedImage == null || _memeTexts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select an image and add text first')),
       );
@@ -163,66 +184,49 @@ class _DrawingPageState extends State<DrawingPage> {
     }
 
     try {
-      // Kullanıcı kontrolü
-      if (widget.userId.isEmpty) {
-        print('❌ User ID is empty');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
-        return;
-      }
-
-      print('🔄 Starting meme save process for user: ${widget.userId}');
-
-      // Resmi ve text'i bir araya getir
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
       
-      // Resmi yükle ve çiz
       final image = await _loadImage(_selectedImage!.path);
       canvas.drawImage(image, Offset.zero, Paint());
       
-      // Text'i çiz
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: _memeText!.text,
-          style: TextStyle(
-            fontSize: _memeText!.fontSize,
-            color: _memeText!.color,
-            shadows: [
-              Shadow(
-                color: _memeText!.strokeColor,
-                blurRadius: _currentBlurRadius,
-              ),
-            ],
+      // Tüm metinleri çiz
+      for (final memeText in _memeTexts) {
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: memeText.text,
+            style: TextStyle(
+              fontSize: memeText.fontSize,
+              color: memeText.color,
+              shadows: [
+                Shadow(
+                  color: memeText.strokeColor,
+                  blurRadius: _currentBlurRadius,
+                ),
+              ],
+            ),
           ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      
-      // Ekran ve resim boyutları arasındaki oranı hesapla
-      final screenSize = MediaQuery.of(context).size;
-      final scale = image.width / screenSize.width;
-      
-      // Pozisyonu ölçekle
-      final scaledPosition = Offset(
-        _memeText!.position.dx * scale,
-        _memeText!.position.dy * scale,
-      );
-      
-      textPainter.paint(canvas, scaledPosition);
-      
-      // Resmi kaydet
-      final picture = recorder.endRecording();
-      final img = await picture.toImage(image.width, image.height);
-      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-      final buffer = byteData!.buffer.asUint8List();
-      
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        
+        final screenSize = MediaQuery.of(context).size;
+        final scale = image.width / screenSize.width;
+        
+        final scaledPosition = Offset(
+          memeText.position.dx * scale,
+          memeText.position.dy * scale,
+        );
+        
+        textPainter.paint(canvas, scaledPosition);
+      }
+
       // Geçici dosya oluştur
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/temp_meme_${DateTime.now().millisecondsSinceEpoch}.png');
-      await tempFile.writeAsBytes(buffer);
+      final img = await recorder.endRecording().toImage(image.width, image.height);
+      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+      await tempFile.writeAsBytes(byteData!.buffer.asUint8List());
 
       print('Uploading meme for user: ${widget.userId}');
       
@@ -231,15 +235,9 @@ class _DrawingPageState extends State<DrawingPage> {
       
       if (downloadUrl != null) {
         print('🆔 Current userId: ${widget.userId}');
-        await _firebaseService.saveMeme(widget.userId, downloadUrl, isPublic: false);
+        await _firebaseService.saveMeme(widget.userId, downloadUrl);
         if (mounted) {
           Navigator.pop(context, true);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Meme saved! Go to home page to share it publicly.'),
-              duration: Duration(seconds: 3),
-            ),
-          );
         }
       } else {
         throw Exception('Failed to get download URL');
@@ -261,23 +259,39 @@ class _DrawingPageState extends State<DrawingPage> {
   }
 
   Widget _buildTextEditingPanel() {
+    final selectedText = _memeTexts[_selectedTextIndex!];
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.grey[200],
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
-            controller: _textController,
-            decoration: const InputDecoration(
-              labelText: 'Edit text',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (value) {
-              setState(() {
-                _memeText!.text = value;
-              });
-            },
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _textController,
+                  decoration: const InputDecoration(
+                    labelText: 'Edit text',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedText.text = value;
+                    });
+                  },
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: () {
+                  setState(() {
+                    _memeTexts.removeAt(_selectedTextIndex!);
+                    _selectedTextIndex = null;
+                  });
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Row(
@@ -287,13 +301,12 @@ class _DrawingPageState extends State<DrawingPage> {
                   children: [
                     const Text('Font Size'),
                     Slider(
-                      value: _currentFontSize,
+                      value: selectedText.fontSize,
                       min: 12,
                       max: 48,
                       onChanged: (value) {
                         setState(() {
-                          _currentFontSize = value;
-                          _memeText!.fontSize = value;
+                          selectedText.fontSize = value;
                         });
                       },
                     ),
@@ -304,11 +317,10 @@ class _DrawingPageState extends State<DrawingPage> {
                 icon: const Icon(Icons.color_lens),
                 onPressed: () => _showColorPicker(
                   title: 'Text Color',
-                  color: _currentColor,
+                  color: selectedText.color,
                   onColorChanged: (color) {
                     setState(() {
-                      _currentColor = color;
-                      _memeText!.color = color;
+                      selectedText.color = color;
                     });
                   },
                 ),
@@ -350,21 +362,22 @@ class _DrawingPageState extends State<DrawingPage> {
     if (image != null) {
       setState(() {
         _selectedImage = File(image.path);
-        _memeText = null;
+        _memeTexts = [];
       });
     }
   }
 
   void _addNewText() {
     setState(() {
-      _memeText = MemeTextWidget(
+      _memeTexts.add(MemeTextWidget(
         text: 'New Text',
         position: const Offset(100, 100),
         fontSize: _currentFontSize,
         color: _currentColor,
         strokeWidth: _currentStrokeWidth,
         strokeColor: _currentStrokeColor,
-      );
+      ));
+      _selectedTextIndex = _memeTexts.length - 1;
       _textController.text = 'New Text';
     });
   }

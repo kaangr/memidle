@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:memidle_test/screens/profile_page.dart';
 import '../services/firebase_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SocialPage extends StatefulWidget {
   final String userId;
@@ -46,6 +48,7 @@ class _SocialPageState extends State<SocialPage> {
         child: StreamBuilder<QuerySnapshot>(
           stream: _firestore
               .collection('memes')
+              .where('isPublic', isEqualTo: true)
               .orderBy('createdAt', descending: true)
               .snapshots(),
           builder: (context, snapshot) {
@@ -179,6 +182,63 @@ class _SocialPageState extends State<SocialPage> {
                   ],
                 ),
               ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Normal rating yıldızları
+                  Row(
+                    children: List.generate(5, (index) {
+                      return IconButton(
+                        icon: Icon(
+                          index < (memeData['averageRating'] ?? 0).floor()
+                              ? Icons.star
+                              : Icons.star_border,
+                        ),
+                        onPressed: () => _firebaseService.rateMeme(meme.id, index + 1, widget.userId),
+                      );
+                    }),
+                  ),
+                  // Memidle butonu
+                  FutureBuilder<bool>(
+                    future: _firebaseService.canGiveMemidle(widget.userId, meme.id),
+                    builder: (context, snapshot) {
+                      final canGive = snapshot.data ?? false;
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: canGive ? Colors.amber.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: canGive
+                                ? () => _giveMemidle(meme.id)
+                                : () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('You can give one Memidle per day'),
+                                      ),
+                                    );
+                                  },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              child: Text(
+                                'Memidle.',
+                                style: GoogleFonts.abrilFatface(
+                                  color: canGive ? Colors.amber : Colors.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
         );
@@ -202,8 +262,24 @@ class _SocialPageState extends State<SocialPage> {
     }
   }
 
-  void _showRatingDialog(String memeId) {
+  void _showRatingDialog(String memeId) async {
+    // Önce oy verip veremeyeceğini kontrol et
+    final canRate = await _firebaseService.canRateMeme(memeId, widget.userId);
+    
+    if (!canRate) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You cannot rate this meme again or it\'s your own meme'),
+          ),
+        );
+      }
+      return;
+    }
+
     int rating = 5;
+    if (!mounted) return;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -247,7 +323,7 @@ class _SocialPageState extends State<SocialPage> {
           TextButton(
             onPressed: () async {
               try {
-                await _firebaseService.rateMeme(memeId, widget.userId, rating.toDouble());
+                await _firebaseService.rateMeme(memeId, rating, widget.userId);
                 if (mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -258,7 +334,7 @@ class _SocialPageState extends State<SocialPage> {
                 if (mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error submitting rating: $e')),
+                    SnackBar(content: Text('Error: $e')),
                   );
                 }
               }
@@ -270,27 +346,21 @@ class _SocialPageState extends State<SocialPage> {
     );
   }
 
-  Future<void> _useMemidle(String memeId) async {
+  Future<void> _giveMemidle(String memeId) async {
     try {
-      await _firebaseService.useMemidle(memeId, widget.userId);
+      await _firebaseService.giveMemidle(widget.userId, memeId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Memidle used! +50 points')),
+          const SnackBar(content: Text('Memidle points given! +50 points')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error using Memidle: $e')),
+          SnackBar(content: Text('Error giving Memidle: $e')),
         );
       }
     }
-  }
-
-  void _showMemidleUsedMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('You can use Memidle once per day!')),
-    );
   }
 
   @override

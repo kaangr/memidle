@@ -57,46 +57,55 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _buildUserStats() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('memes')
-          .where('userId', isEqualTo: userId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _firestore.collection('users').doc(userId).snapshots(),
+      builder: (context, userSnapshot) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: _firestore
+              .collection('memes')
+              .where('userId', isEqualTo: userId)
+              .snapshots(),
+          builder: (context, memesSnapshot) {
+            if (!userSnapshot.hasData || !memesSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-        final memes = snapshot.data!.docs;
-        double totalRating = 0;
-        int totalRatings = 0;
+            final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+            final memes = memesSnapshot.data!.docs;
+            
+            double totalRating = 0;
+            int totalRatings = 0;
 
-        for (var meme in memes) {
-          final memeData = meme.data() as Map<String, dynamic>?;
-          if (memeData == null) continue;
+            for (var meme in memes) {
+              final memeData = meme.data() as Map<String, dynamic>?;
+              if (memeData == null) continue;
 
-          final double avgRating = (memeData['averageRating'] as num?)?.toDouble() ?? 0.0;
-          final int numRatings = (memeData['totalRatings'] as num?)?.toInt() ?? 0;
-          
-          totalRating += avgRating * numRatings;
-          totalRatings += numRatings;
-        }
+              final double avgRating = (memeData['averageRating'] as num?)?.toDouble() ?? 0.0;
+              final int numRatings = (memeData['totalRatings'] as num?)?.toInt() ?? 0;
+              
+              totalRating += avgRating * numRatings;
+              totalRatings += numRatings;
+            }
 
-        final averageRating = totalRatings > 0 ? totalRating / totalRatings : 0.0;
+            final averageRating = totalRatings > 0 ? totalRating / totalRatings : 0.0;
+            final points = userData?['points'] ?? 0;
 
-        return Card(
-          margin: const EdgeInsets.all(8),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem('Memes', memes.length.toString()),
-                _buildStatItem('Avg Rating', averageRating.toStringAsFixed(1)),
-                _buildStatItem('Total Ratings', totalRatings.toString()),
-              ],
-            ),
-          ),
+            return Card(
+              margin: const EdgeInsets.all(8),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItem('Memes', memes.length.toString()),
+                    _buildStatItem('Points', points.toString()),
+                    _buildStatItem('Avg Rating', averageRating.toStringAsFixed(1)),
+                    _buildStatItem('Total Ratings', totalRatings.toString()),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );

@@ -10,7 +10,10 @@ class ProfilePage extends StatelessWidget {
   final FirebaseService _firebaseService = FirebaseService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  ProfilePage({super.key, required this.userId});
+  ProfilePage({
+    super.key, 
+    required this.userId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -48,9 +51,18 @@ class ProfilePage extends StatelessWidget {
         if (userData == null) return const SizedBox.shrink();
 
         return ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text(userData['username'] ?? 'User'),
-          subtitle: Text(userData['email'] ?? ''),
+          leading: CircleAvatar(
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            child: Icon(Icons.person, color: Theme.of(context).colorScheme.onPrimary),
+          ),
+          title: Text(
+            userData['username'] ?? 'User',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          ),
+          subtitle: Text(
+            userData['email'] ?? '',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
         );
       },
     );
@@ -184,18 +196,28 @@ class ProfilePage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Settings'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'Settings',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.delete),
-              title: const Text('Delete Account'),
+              title: Text(
+                'Delete Account',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              ),
               onTap: () => _showDeleteAccountDialog(context),
             ),
             ListTile(
               leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
+              title: Text(
+                'Logout',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              ),
               onTap: () async {
                 await FirebaseAuth.instance.signOut();
                 Navigator.of(context).pushAndRemoveUntil(

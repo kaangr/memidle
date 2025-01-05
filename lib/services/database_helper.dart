@@ -1,3 +1,12 @@
+
+
+
+
+
+
+  //  databaselhelper daha öncesinde sqlite kullanılan versiyondan kalma bir dosya.Şuand kullanılmıyor.
+
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:io';
@@ -132,7 +141,7 @@ class DatabaseHelper {
   Future<void> deleteMeme(int memeId) async {
     final db = await database;
 
-    // Get the meme info first
+    // meme
     final meme = await db.query(
       'memes',
       where: 'id = ?',
@@ -140,13 +149,13 @@ class DatabaseHelper {
     );
 
     if (meme.isNotEmpty) {
-      // Delete the file
+      // deleting
       final file = File(meme.first['image_path'] as String);
       if (await file.exists()) {
         await file.delete();
       }
 
-      // Delete from database
+      // database delete
       await db.delete(
         'memes',
         where: 'id = ?',

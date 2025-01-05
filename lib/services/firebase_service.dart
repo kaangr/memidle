@@ -139,87 +139,155 @@ class FirebaseService {
   }
 
   // Meme derecelendirme
-  Future<void> rateMeme(String memeId, String userId, double rating) async {
+  Future<void> rateMeme(String memeId, int rating, String userId) async {
     try {
-      // Kullanıcının daha önce bu meme'i derecelendirip derecelendirmediğini kontrol et
-      DocumentReference memeRef = _firestore.collection('memes').doc(memeId);
-      DocumentReference ratingRef = _firestore
+      print('📊 Rating meme: $memeId with rating: $rating by user: $userId');
+      final memeDoc = await _firestore.collection('memes').doc(memeId).get();
+      final memeData = memeDoc.data();
+      
+      if (memeData == null) {
+        throw Exception('Meme not found');
+      }
+
+      // Kendi meme'ini oylamamalı
+      if (memeData['userId'] == userId) {
+        throw Exception('You cannot rate your own meme');
+      }
+
+      // Kullanıcının daha önce bu meme'e oy verip vermediğini kontrol et
+      final ratingDoc = await _firestore
           .collection('memes')
           .doc(memeId)
           .collection('ratings')
-          .doc(userId);
+          .doc(userId)
+          .get();
 
-      await _firestore.runTransaction((transaction) async {
-        DocumentSnapshot memeDoc = await transaction.get(memeRef);
-        DocumentSnapshot ratingDoc = await transaction.get(ratingRef);
+      if (ratingDoc.exists) {
+        throw Exception('You have already rated this meme');
+      }
 
-        if (!ratingDoc.exists) {
-          // Yeni derecelendirme
-          double currentAverage = (memeDoc.data() as Map<String, dynamic>)['averageRating'] ?? 0.0;
-          int totalRatings = (memeDoc.data() as Map<String, dynamic>)['totalRatings'] ?? 0;
-
-          double newAverage = ((currentAverage * totalRatings) + rating) / (totalRatings + 1);
-
-          transaction.update(memeRef, {
-            'averageRating': newAverage,
-            'totalRatings': totalRatings + 1,
-          });
-
-          transaction.set(ratingRef, {
-            'rating': rating,
-            'timestamp': FieldValue.serverTimestamp(),
-          });
-        }
+      // Yeni rating'i kaydet
+      await _firestore
+          .collection('memes')
+          .doc(memeId)
+          .collection('ratings')
+          .doc(userId)
+          .set({
+        'rating': rating,
+        'timestamp': FieldValue.serverTimestamp(),
       });
+
+      // Mevcut rating değerlerini al
+      final currentTotalRatings = (memeData['totalRatings'] ?? 0) as int;
+      double currentAverageRating;
+      final rawAvgRating = memeData['averageRating'];
+      if (rawAvgRating == null) {
+        currentAverageRating = 0.0;
+      } else if (rawAvgRating is int) {
+        currentAverageRating = rawAvgRating.toDouble();
+      } else {
+        currentAverageRating = (rawAvgRating as num).toDouble();
+      }
+
+      // Yeni değerleri hesapla
+      final newTotalRatings = currentTotalRatings + 1;
+      final newAverageRating = ((currentAverageRating * currentTotalRatings) + rating) / newTotalRatings;
+
+      // Meme'i güncelle
+      await _firestore.collection('memes').doc(memeId).update({
+        'totalRatings': newTotalRatings,
+        'averageRating': newAverageRating,
+      });
+
+      print('✅ Rating saved successfully');
     } catch (e) {
-      print('Rate meme error: $e');
+      print('❌ Rate meme error: $e');
       rethrow;
     }
   }
 
-  // Memidle kullanım kontrolü
-  Future<bool> canUseMemidle(String userId) async {
+  // Kullanıcının bir meme'e daha önce oy verip vermediğini kontrol et
+  Future<bool> canRateMeme(String memeId, String userId) async {
     try {
-      DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
-      Timestamp? lastMemidle = (userDoc.data() as Map<String, dynamic>)['dailyMemidle'];
+      final memeDoc = await _firestore.collection('memes').doc(memeId).get();
+      final memeData = memeDoc.data();
       
-      if (lastMemidle == null) return true;
+      if (memeData == null) return false;
       
-      DateTime lastUse = lastMemidle.toDate();
-      DateTime now = DateTime.now();
-      
-      return !_isSameDay(lastUse, now);
+      // Kendi meme'ini oylayamaz
+      if (memeData['userId'] == userId) return false;
+
+      // Daha önce oy verip vermediğini kontrol et
+      final ratingDoc = await _firestore
+          .collection('memes')
+          .doc(memeId)
+          .collection('ratings')
+          .doc(userId)
+          .get();
+
+      return !ratingDoc.exists;
     } catch (e) {
-      print('Check Memidle error: $e');
+      print('❌ Check can rate error: $e');
       return false;
     }
   }
 
-  // Memidle kullanımı
-  Future<void> useMemidle(String memeId, String userId) async {
+  // Memidle puanı için yeni metod
+  Future<bool> canGiveMemidle(String userId, String memeId) async {
     try {
-      if (!await canUseMemidle(userId)) {
-        throw Exception('Memidle already used today');
+      // Kendi meme'ini kontrol et
+      final memeDoc = await _firestore.collection('memes').doc(memeId).get();
+      final memeData = memeDoc.data();
+      if (memeData?['userId'] == userId) {
+        return false; // Kendi meme'ine puan veremez
       }
 
-      await _firestore.runTransaction((transaction) async {
-        DocumentReference memeRef = _firestore.collection('memes').doc(memeId);
-        DocumentReference userRef = _firestore.collection('users').doc(userId);
+      // Günlük puanlama hakkını kontrol et
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final userData = userDoc.data();
+      
+      final lastMemidleDate = userData?['lastMemidleDate']?.toDate();
+      if (lastMemidleDate != null) {
+        final lastDate = DateTime(
+          lastMemidleDate.year,
+          lastMemidleDate.month,
+          lastMemidleDate.day,
+        );
+        if (lastDate.isAtSameMomentAs(today)) {
+          return false; // Bugün zaten kullanmış
+        }
+      }
+      
+      return true;
+    } catch (e) {
+      print('❌ Check Memidle error: $e');
+      return false;
+    }
+  }
 
-        // Meme'in puanını güncelle
-        transaction.update(memeRef, {
-          'memidleCount': FieldValue.increment(1),
-          'totalPoints': FieldValue.increment(50),
-        });
-
-        // Kullanıcının Memidle kullanım zamanını güncelle
-        transaction.update(userRef, {
-          'dailyMemidle': FieldValue.serverTimestamp(),
-          'points': FieldValue.increment(50),
-        });
+  Future<void> giveMemidle(String userId, String memeId) async {
+    try {
+      // Meme sahibinin ID'sini al
+      final memeDoc = await _firestore.collection('memes').doc(memeId).get();
+      final memeOwnerId = memeDoc.data()?['userId'] as String;
+      
+      // Meme sahibine puan ekle
+      final ownerDoc = await _firestore.collection('users').doc(memeOwnerId).get();
+      final currentPoints = (ownerDoc.data()?['points'] ?? 0) as int;
+      
+      await _firestore.collection('users').doc(memeOwnerId).update({
+        'points': currentPoints + 50,
+      });
+      
+      // Puanlayan kullanıcının son Memidle tarihini güncelle
+      await _firestore.collection('users').doc(userId).update({
+        'lastMemidleDate': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Use Memidle error: $e');
+      print('❌ Give Memidle error: $e');
       rethrow;
     }
   }
@@ -282,10 +350,9 @@ class FirebaseService {
     }
   }
 
-  Future<void> saveMeme(String userId, String imageUrl) async {
+  Future<void> saveMeme(String userId, String imageUrl, {bool isPublic = false}) async {
     print('💾 Saving meme for user: $userId');
     try {
-      // Önce kullanıcının var olduğunu kontrol edelim
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (!userDoc.exists) {
         print('❌ User document not found for ID: $userId');
@@ -294,17 +361,18 @@ class FirebaseService {
 
       // Meme'i kaydedelim
       final memeRef = await _firestore.collection('memes').add({
-        'userId': userId,  // Gerçek kullanıcı ID'si
+        'userId': userId,
         'imageUrl': imageUrl,
         'createdAt': FieldValue.serverTimestamp(),
         'totalRatings': 0,
-        'averageRating': 0,
-        'username': userDoc.data()?['username'] ?? 'Unknown', // Username'i de ekleyelim
+        'averageRating': 0.0,  // Double olarak başlat
+        'username': userDoc.data()?['username'] ?? 'Unknown',
+        'isPublic': isPublic,  // Yeni alan
+        'totalMemidlePoints': 0,  // Yeni alan
+        'memidleCount': 0,  // Yeni alan
       });
 
       print('✅ Meme saved successfully with ID: ${memeRef.id}');
-      print('👤 Saved for user: ${userDoc.data()?['username']}');
-
     } catch (e) {
       print('❌ Error saving meme: $e');
       rethrow;

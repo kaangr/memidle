@@ -23,6 +23,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final FirebaseService _firebaseService = FirebaseService();
+  String? _selectedMemeId;
+  bool _hasSelectedMeme = false;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +75,31 @@ class _HomePageState extends State<HomePage> {
       ),
       drawer: _buildDrawer(),
       body: _buildMemeGrid(),
+      bottomNavigationBar: _hasSelectedMeme
+          ? BottomAppBar(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Seçili meme\'i paylaş',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    ElevatedButton.icon(
+                      icon: Icon(Icons.public),
+                      label: Text('Herkese Açık Paylaş'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                      ),
+                      onPressed: () => _toggleMemeVisibility(_selectedMemeId!, false),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push(
@@ -216,31 +243,76 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildMemeCard(DocumentSnapshot meme) {
     final memeData = meme.data() as Map<String, dynamic>;
+    final bool isPublic = memeData['isPublic'] ?? false;
+    final bool isSelected = meme.id == _selectedMemeId;
     
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          CachedNetworkImage(
-            imageUrl: memeData['imageUrl'],
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Center(child: CircularProgressIndicator()),
-            errorWidget: (context, url, error) => Icon(Icons.error),
-          ),
-          Positioned(
-            right: 4,
-            top: 4,
-            child: Row(
+          InkWell(
+            onTap: () {
+              setState(() {
+                if (isSelected) {
+                  _selectedMemeId = null;
+                  _hasSelectedMeme = false;
+                } else {
+                  _selectedMemeId = meme.id;
+                  _hasSelectedMeme = true;
+                }
+              });
+            },
+            child: Stack(
               children: [
-                IconButton(
-                  icon: Icon(Icons.share, color: Colors.white),
-                  onPressed: () => _shareMeme(memeData),
+                CachedNetworkImage(
+                  imageUrl: memeData['imageUrl'],
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Center(child: CircularProgressIndicator()),
+                  errorWidget: (context, url, error) => Icon(Icons.error),
                 ),
-                IconButton(
-                  icon: Icon(Icons.delete, color: Colors.white),
-                  onPressed: () => _deleteMeme(meme.id),
+                if (isSelected)
+                  Container(
+                    color: Colors.amber.withOpacity(0.3),
+                    child: Center(
+                      child: Icon(
+                        Icons.check_circle,
+                        color: Colors.amber,
+                        size: 40,
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Row(
+                    children: [
+                      if (isPublic)
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Public',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      IconButton(
+                        icon: Icon(Icons.share, color: Colors.white),
+                        onPressed: () => _shareMeme(memeData),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete, color: Colors.white),
+                        onPressed: () => _deleteMeme(meme.id),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -283,6 +355,29 @@ class _HomePageState extends State<HomePage> {
           .delete();
       
       setState(() {});
+    }
+  }
+
+  Future<void> _toggleMemeVisibility(String memeId, bool currentVisibility) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('memes')
+          .doc(memeId)
+          .update({'isPublic': !currentVisibility});
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            !currentVisibility 
+                ? 'Meme is now visible in Social Feed!' 
+                : 'Meme is now private'
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating meme visibility: $e')),
+      );
     }
   }
 

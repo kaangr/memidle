@@ -231,9 +231,15 @@ class _DrawingPageState extends State<DrawingPage> {
       
       if (downloadUrl != null) {
         print('🆔 Current userId: ${widget.userId}');
-        await _firebaseService.saveMeme(widget.userId, downloadUrl);
+        await _firebaseService.saveMeme(widget.userId, downloadUrl, isPublic: false);
         if (mounted) {
           Navigator.pop(context, true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meme saved! Go to home page to share it publicly.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
         }
       } else {
         throw Exception('Failed to get download URL');

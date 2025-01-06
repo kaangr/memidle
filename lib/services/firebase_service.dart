@@ -71,9 +71,9 @@ class FirebaseService {
           email: userEmail,
           password: password,
         );
-      }
+      } 
     } catch (e) {
-      print('🔥 Login Error: $e');
+      print(' Login Error: $e');
       rethrow;
     }
   }

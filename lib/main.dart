@@ -23,11 +23,14 @@ void main() async {
     androidProvider: AndroidProvider.debug,
   );
 
-  // SharedPreferences'dan tema tercihini al
+  
   final prefs = await SharedPreferences.getInstance();
   final isDarkMode = prefs.getBool('isDarkMode') ?? false;
 
   print('App Check aktif edildi');
+
+  
+
 
   runApp(MyApp(initialDarkMode: isDarkMode));
 }

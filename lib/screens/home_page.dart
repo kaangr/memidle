@@ -44,7 +44,7 @@ class _HomePageState extends State<HomePage> {
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
-              print('❌ Error loading user data: ${snapshot.error}');
+              print('Error loading user data: ${snapshot.error}');
               return const Text('My Meme Studio');
             }
 

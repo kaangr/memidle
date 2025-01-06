@@ -234,7 +234,7 @@ class _DrawingPageState extends State<DrawingPage> {
       final downloadUrl = await _firebaseService.uploadMeme(tempFile);
       
       if (downloadUrl != null) {
-        print('🆔 Current userId: ${widget.userId}');
+        print('Current userId: ${widget.userId}');
         await _firebaseService.saveMeme(widget.userId, downloadUrl);
         if (mounted) {
           Navigator.pop(context, true);

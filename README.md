@@ -1,3 +1,7 @@
+
+Memidle is a social media mobile application where you can edit and share memes.
+
+
 [Memidle App Sunum (1)_compressed.pdf](https://github.com/user-attachments/files/18996301/Memidle.App.Sunum.1._compressed.pdf)
 
 
